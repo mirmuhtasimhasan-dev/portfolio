@@ -22,6 +22,18 @@ export type Credential = {
   year: string;
 };
 
+/** A 2400×1500 (16:10) image for a device screen. */
+export type Shot = {
+  src: string;
+  width: number;
+  height: number;
+  /**
+   * Empty when the picture only repeats copy that is real text nearby —
+   * describing it again just reads the section twice.
+   */
+  alt: string;
+};
+
 export type Project = {
   index: string;
   name: string;
@@ -30,6 +42,7 @@ export type Project = {
   body: string[];
   stack: string[];
   href: string;
+  shot: Shot;
 };
 
 export type ContactLink = {
@@ -63,11 +76,8 @@ export type Content = {
     body: string[];
     principlesEyebrow: string;
     principles: Principle[];
-    /**
-     * The screenshot shown in the tilting device. It carries no alt text: it
-     * pictures the About copy, and that copy is real text in the same section.
-     */
-    shot: { src: string; width: number; height: number };
+    /** The screenshot shown in the tilting device. */
+    shot: Shot;
   };
   experience: {
     eyebrow: string;
@@ -151,6 +161,7 @@ export const content: Content = {
       src: "/showcase.webp",
       width: 2400,
       height: 1500,
+      alt: "", // it pictures the About copy, which is real text in this section
     },
   },
 
@@ -208,6 +219,12 @@ export const content: Content = {
           "PM2",
         ],
         href: "https://zubayer.life",
+        shot: {
+          src: "/projects/zubayer.webp",
+          width: 2400,
+          height: 1500,
+          alt: "The zubayer.life home page: a serif headline reading “Some people choose a lane. I chose a problem.” over a pale ground, with Gallery, Ventures, Writing, Engagements, About and Contact in the nav.",
+        },
       },
       {
         index: "02",
@@ -219,6 +236,12 @@ export const content: Content = {
         ],
         stack: ["React", "Tailwind", "Firebase", "Firestore", "Node.js"],
         href: "https://rent-time-bd.web.app/",
+        shot: {
+          src: "/projects/renttime.webp",
+          width: 2400,
+          height: 1500,
+          alt: "The RentTime home page: “Rent Time — Home Renting Made Simple” in white over a deep violet hero, with Explore Properties and Learn More buttons and a Houses / Roommates / Blog nav.",
+        },
       },
     ],
   },

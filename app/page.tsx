@@ -1,6 +1,7 @@
+import { Fragment } from "react";
 import { content } from "@/lib/content";
 import PillNav from "@/components/PillNav";
-import TiltShowcase from "@/components/TiltShowcase";
+import DeviceTile from "@/components/DeviceTile";
 
 const { identity, hero, about, experience, projects, contact } = content;
 
@@ -47,7 +48,7 @@ export default function Page() {
 
       {/* ── 2 · About ──────────────────────────────────────────── */}
       <section id="about">
-        <TiltShowcase />
+        <DeviceTile shot={about.shot} nav />
 
         {/* The device's screen carries this copy as pixels. Above 900px it is
             large enough to read in there, so the DOM copy steps out of view
@@ -116,57 +117,70 @@ export default function Page() {
         </div>
       </section>
 
-      {/* ── 4 · Projects ───────────────────────────────────────── */}
-      <section id="projects" className="section">
-        <div className="shell">
-          <div className="panel">
-            <div className="section-head">
-              <p className="eyebrow">{projects.eyebrow}</p>
-              <h2 className="h2">{projects.heading}</h2>
+      {/* ── 4 · Projects ─────────────────────────────────────────
+          One device tile per project, in the same motion as About: the
+          screen carries a real capture of the live site, and the copy —
+          which the screenshot does not contain — follows it as a panel. */}
+      <section id="projects">
+        <div className="section">
+          <div className="shell">
+            <div className="panel">
+              <div className="section-head">
+                <p className="eyebrow">{projects.eyebrow}</p>
+                <h2 className="h2">{projects.heading}</h2>
+              </div>
             </div>
-
-            <ul className="projects">
-              {projects.items.map((project) => (
-                <li className="project" key={project.index}>
-                  <div className="project-head">
-                    <p className="project-meta mono">
-                      <span>{project.index}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{project.year}</span>
-                      <span aria-hidden="true">·</span>
-                      <span className="project-status">{project.status}</span>
-                    </p>
-                    <h3 className="project-name">{project.name}</h3>
-                    <ul className="chips">
-                      {project.stack.map((tool) => (
-                        <li className="chip mono" key={tool}>
-                          {tool}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="project-body">
-                    {project.body.map((paragraph) => (
-                      <p className="prose" key={paragraph.slice(0, 24)}>
-                        {paragraph}
-                      </p>
-                    ))}
-                    <a
-                      className="project-link mono"
-                      href={project.href}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      <span aria-hidden="true">→</span>
-                      Visit {project.name}
-                    </a>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
+
+        {projects.items.map((project) => (
+          <Fragment key={project.index}>
+            <DeviceTile shot={project.shot} />
+
+            <div className="section">
+              <div className="shell">
+                <div className="panel">
+                  <div className="project">
+                    <div className="project-head">
+                      <p className="project-meta mono">
+                        <span>{project.index}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{project.year}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="project-status">{project.status}</span>
+                      </p>
+                      <h3 className="project-name">{project.name}</h3>
+                      <ul className="chips">
+                        {project.stack.map((tool) => (
+                          <li className="chip mono" key={tool}>
+                            {tool}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="project-body">
+                      {project.body.map((paragraph) => (
+                        <p className="prose" key={paragraph.slice(0, 24)}>
+                          {paragraph}
+                        </p>
+                      ))}
+                      <a
+                        className="project-link mono"
+                        href={project.href}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        <span aria-hidden="true">→</span>
+                        Visit {project.name}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Fragment>
+        ))}
       </section>
 
       {/* ── 5 · Contact ────────────────────────────────────────── */}

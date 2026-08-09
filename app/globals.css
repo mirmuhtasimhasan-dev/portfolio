@@ -723,11 +723,8 @@ ol {
    13 · Projects
    ============================================================ */
 
-.projects {
-  display: flex;
-  flex-direction: column;
-}
-
+/* One project per panel, under its own device tile — so the separators and
+   vertical padding collapse via :first-child / :last-child below. */
 .project {
   display: grid;
   gap: clamp(16px, 2.4vw, 34px);

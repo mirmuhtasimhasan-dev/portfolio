@@ -20,7 +20,7 @@ things are raw WebGL written against the shaders in the brief:
 | | |
 |---|---|
 | `components/FluidField.tsx` | The metaball field. One fixed canvas behind the page, drawn as a single full-screen triangle. Pointer tracked on `window`, not the canvas — the panels sit on top and would swallow every move. |
-| `components/TiltShowcase.tsx` | The About device. Two triangles drawn twice a frame: reflection first (`u_mirror = 1`), then the device. Blend on, depth off. |
+| `components/DeviceTile.tsx` | The tilting device. Two triangles drawn twice a frame: reflection first (`u_mirror = 1`), then the device. Blend on, depth off. Used three times — once for About, once per project. |
 
 **First Load JS: 109 kB** (target was under 130).
 
@@ -63,9 +63,15 @@ band cannot. Hero copy stays on `--ink` and `--ink-dim` only.
 - DPR capped at 1.5 (field) and 2 (device).
 - Adaptive resolution on both: below ~44 fps the render scale drops toward 0.6,
   above ~56 fps it recovers.
-- The device's loop is parked by an IntersectionObserver when its section leaves
-  the viewport, and both loops park on `visibilitychange`. The delta clock is
-  reset on resume so parked time does not arrive as one enormous frame.
+- Each device's loop is parked by an IntersectionObserver when its section
+  leaves the viewport, and every loop parks on `visibilitychange`. The delta
+  clock is reset on resume so parked time does not arrive as one enormous frame.
+- **The devices do not all hold their textures at once.** A 2048×2048 mipmapped
+  RGBA texture is about 21 MB, and three resident is not a phone-sized number.
+  A second observer at `rootMargin: 100%` builds a tile's GPU resources as it
+  comes within a viewport and deletes them when it goes two away. Measured by
+  patching `createTexture`/`deleteTexture`: live textures peak at **2 of 3**
+  across a full scroll of the page, never 3.
 - After a resize while parked, each canvas repaints once by hand.
 - `backdrop-filter` at a 7 px radius, on at most the navbar and one panel at a
   time. Panels never nest.
@@ -121,10 +127,25 @@ Measured on the production build in Edge:
   appear, then both rebuild and resume drawing.
 - Tab order follows visual order; focus ring present on every stop.
 
-## The device's screen
+## The device screens
 
-`public/showcase.webp` — 2400×1500, 16:10, **134 kB**. It is a real capture of
-the About Me copy below it, taken from the running site at a 960×600 viewport
+Three shots, all 2400×1500 at 16:10 so they land on the quad without a crop:
+
+| File | What it is | Size |
+|---|---|---|
+| `public/showcase.webp` | The About copy, captured from this site | 134 kB |
+| `public/projects/zubayer.webp` | zubayer.life, captured live | 41 kB |
+| `public/projects/renttime.webp` | rent-time-bd.web.app, captured live | 78 kB |
+
+The project tiles show the real sites — that is what a device mockup is for.
+Their copy is not in the picture, so it follows each tile as an ordinary panel.
+Their `alt` text describes the screenshot properly; the About shot's `alt` is
+empty because it only pictures copy that is real text in the same section.
+
+### Regenerating the About shot
+
+`public/showcase.webp` is a capture of the About Me copy below it, taken from
+the running site at a 960×600 viewport
 with `deviceScaleFactor: 2.5` (960 keeps `.about-grid` in two columns; its
 breakpoint is 900). Three things have to be true of the capture:
 
