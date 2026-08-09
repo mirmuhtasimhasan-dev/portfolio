@@ -50,8 +50,18 @@ nothing is hard-coded in JSX. Change a sentence there and it changes everywhere.
 ## Contrast
 
 `--ink-faint` is legible on the frosted panel but not on the bare field over
-the field's deep stop (`#2d283e`), so **all copy is either on a panel or in the
-hero.** Section headings live inside their panel for this reason.
+the field's deep stop (`#2d283e`), so **all copy is either on a panel or on a
+wash.** Section headings live inside their panel for this reason.
+
+The projects are the exception: their spec sheets sit on the field with no card
+at all, using `.on-field`. That is a flat `rgba(245,243,239,0.55)` band with no
+blur, so it costs nothing, and both its vertical and horizontal fades finish
+exactly where the copy starts — a band with hard sides just reads as the card it
+exists not to be. Over the field's darkest stop the copy measures `--ink` at
+6.47:1 and `--ink-dim` at 4.89:1; `--ink-faint` reaches only 4.10:1, so
+`.on-field` overrides it away. The wash is on the full-width `.section` and
+sized with `100%`, never `100vw` — `vw` includes the scrollbar and would push
+the document wider than the viewport.
 
 The hero has no card. It gets the §7 paper wash: a flat `rgba(245,243,239,0.55)`
 band that fades only above and below the copy. A radial wash thins out under the

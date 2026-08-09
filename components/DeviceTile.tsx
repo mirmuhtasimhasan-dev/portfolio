@@ -399,6 +399,9 @@ export default function DeviceTile({
         settle = 45;
         ema = 16.7;
         resize();
+        /* adapt() runs after draw(), and resize() reallocates the drawing
+           buffer — so redraw now or the frame composites an empty one. */
+        draw();
       }
     }
 

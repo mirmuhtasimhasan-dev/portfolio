@@ -231,6 +231,11 @@ export default function FluidField() {
         settle = 45;
         ema = 16.7;
         resize();
+        /* resize() reallocates the drawing buffer, and adapt() runs after
+           render(), so without this the frame ends with an empty buffer — and
+           an alpha:false canvas composites that as a black rectangle. Same
+           hazard as resizing while parked, one frame instead of many. */
+        render();
       }
     }
 

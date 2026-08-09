@@ -122,13 +122,11 @@ export default function Page() {
           screen carries a real capture of the live site, and the copy —
           which the screenshot does not contain — follows it as a panel. */}
       <section id="projects">
-        <div className="section">
+        <div className="section on-field">
           <div className="shell">
-            <div className="panel">
-              <div className="section-head">
-                <p className="eyebrow">{projects.eyebrow}</p>
-                <h2 className="h2">{projects.heading}</h2>
-              </div>
+            <div className="section-head">
+              <p className="eyebrow">{projects.eyebrow}</p>
+              <h2 className="h2">{projects.heading}</h2>
             </div>
           </div>
         </div>
@@ -137,45 +135,42 @@ export default function Page() {
           <Fragment key={project.index}>
             <DeviceTile shot={project.shot} />
 
-            <div className="section">
+            <div className="section on-field">
               <div className="shell">
-                <div className="panel">
-                  <div className="project">
-                    <div className="project-head">
-                      <p className="project-meta mono">
-                        <span>{project.index}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{project.year}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="project-status">{project.status}</span>
-                      </p>
-                      <h3 className="project-name">{project.name}</h3>
-                      <ul className="chips">
-                        {project.stack.map((tool) => (
-                          <li className="chip mono" key={tool}>
-                            {tool}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="project-body">
-                      {project.body.map((paragraph) => (
-                        <p className="prose" key={paragraph.slice(0, 24)}>
-                          {paragraph}
-                        </p>
-                      ))}
-                      <a
-                        className="project-link mono"
-                        href={project.href}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                      >
-                        <span aria-hidden="true">→</span>
-                        Visit {project.name}
-                      </a>
-                    </div>
+                <div className="specsheet">
+                  <div className="spec-head">
+                    <h3 className="spec-name">{project.name}</h3>
+                    <p className="spec-index mono">
+                      <span>{project.index}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{project.year}</span>
+                    </p>
                   </div>
+
+                  <dl className="spec-rows">
+                    <div className="spec-row">
+                      <dt className="spec-label mono">Status</dt>
+                      <dd className="spec-value">
+                        <span className="project-status">{project.status}</span>
+                      </dd>
+                    </div>
+                    {project.specs.map((spec) => (
+                      <div className="spec-row" key={spec.label}>
+                        <dt className="spec-label mono">{spec.label}</dt>
+                        <dd className="spec-value">{spec.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <a
+                    className="project-link mono"
+                    href={project.href}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    <span aria-hidden="true">→</span>
+                    Visit {project.name}
+                  </a>
                 </div>
               </div>
             </div>

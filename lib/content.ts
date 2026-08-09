@@ -34,13 +34,16 @@ export type Shot = {
   alt: string;
 };
 
+/** One labelled row of a project's spec sheet. */
+export type Spec = { label: string; value: string };
+
 export type Project = {
   index: string;
   name: string;
   year: string;
+  /** rendered as the first row, with the mint dot */
   status: string;
-  body: string[];
-  stack: string[];
+  specs: Spec[];
   href: string;
   shot: Shot;
 };
@@ -206,17 +209,21 @@ export const content: Content = {
         name: "Zubayer.life",
         year: "2026",
         status: "Live",
-        body: [
-          "Portfolio and living archive for a Dhaka filmmaker and brand consultant. Organised by intent rather than by medium, content-managed through Sanity so new films, photo series and essays publish without a deploy.",
-          "I own the infrastructure too: a Node process behind an Nginx reverse proxy on a VPS I provisioned, kept alive by PM2, certificates renewing on their own.",
-        ],
-        stack: [
-          "Next.js",
-          "TypeScript",
-          "Sanity",
-          "Tailwind",
-          "Nginx",
-          "PM2",
+        specs: [
+          {
+            label: "What",
+            value:
+              "Portfolio and living archive for a Dhaka filmmaker and brand consultant. Organised by intent rather than by medium, content-managed through Sanity so new films, photo series and essays publish without a deploy.",
+          },
+          {
+            label: "Stack",
+            value: "Next.js · TypeScript · Sanity · Tailwind",
+          },
+          {
+            label: "Infra",
+            value:
+              "A Node process behind an Nginx reverse proxy on a VPS I provisioned, kept alive by PM2, certificates renewing on their own.",
+          },
         ],
         href: "https://zubayer.life",
         shot: {
@@ -231,10 +238,17 @@ export const content: Content = {
         name: "RentTime",
         year: "2025",
         status: "Live",
-        body: [
-          "Rental marketplace where listing and availability state stays honest while several users act on the same property at once. Firestore resolves a change everywhere without a refresh.",
+        specs: [
+          {
+            label: "What",
+            value:
+              "Rental marketplace where listing and availability state stays honest while several users act on the same property at once. Firestore resolves a change everywhere without a refresh.",
+          },
+          {
+            label: "Stack",
+            value: "React · Tailwind · Firebase · Firestore · Node.js",
+          },
         ],
-        stack: ["React", "Tailwind", "Firebase", "Firestore", "Node.js"],
         href: "https://rent-time-bd.web.app/",
         shot: {
           src: "/projects/renttime.webp",

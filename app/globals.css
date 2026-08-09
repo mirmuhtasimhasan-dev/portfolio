@@ -720,45 +720,117 @@ ol {
 }
 
 /* ============================================================
-   13 · Projects
+   13 · Projects — spec sheets on the bare field
    ============================================================ */
 
-/* One project per panel, under its own device tile — so the separators and
-   vertical padding collapse via :first-child / :last-child below. */
-.project {
+/* §7 — a block that sits on the field instead of on glass. Same trick as the
+   hero: a flat 0.55 paper band that fades above and below, no blur, so it
+   costs nothing. Over the field's darkest stop (#2d283e) that band reads as
+   L 0.32, which puts --ink at 6.47:1 and --ink-dim at 4.89:1 — but --ink-faint
+   at only 4.10:1. So --ink-faint is overridden away inside here. */
+/* Goes on the full-width .section, not on the copy, so the wash spans the page
+   and every edge fades out in the margins instead of beside the text. 100% of
+   a block element, never 100vw — vw includes the scrollbar and would push the
+   document wider than the viewport. */
+.on-field {
+  position: relative;
+  /* distance from the page edge to the first character of copy */
+  --wash-x: calc((100% - min(100%, var(--shell))) / 2 + var(--gutter));
+  --wash-y: clamp(72px, 11vw, 140px); /* matches .section's padding-block */
+}
+
+.on-field::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(245, 243, 239, 0) 0,
+    rgba(245, 243, 239, 0.55) var(--wash-y),
+    rgba(245, 243, 239, 0.55) calc(100% - var(--wash-y)),
+    rgba(245, 243, 239, 0) 100%
+  );
+  /* The sides have to fade too, or the band has hard left and right edges and
+     reads as the card it exists not to be. Both fades finish exactly where the
+     copy starts, so the text still sits on a flat 0.55 and the measured
+     contrast holds: --ink 6.47:1, --ink-dim 4.89:1 over the field's darkest
+     stop. --ink-faint would only reach 4.10:1, so it is overridden below. */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 var(--wash-x),
+    #000 calc(100% - var(--wash-x)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 var(--wash-x),
+    #000 calc(100% - var(--wash-x)),
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.on-field > * {
+  position: relative;
+}
+
+.on-field .eyebrow {
+  color: var(--ink-dim);
+}
+
+.spec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 24px;
+  padding-bottom: clamp(18px, 2.4vw, 26px);
+}
+
+.spec-name {
+  font-size: clamp(30px, 5.4vw, 62px);
+  font-weight: 600;
+  letter-spacing: -0.036em;
+  line-height: 1.02;
+  color: var(--ink);
+}
+
+.spec-index {
+  display: flex;
+  gap: 8px;
+  color: var(--ink-dim);
+}
+
+.spec-rows {
+  margin: 0;
+  border-bottom: 1px solid var(--edge);
+}
+
+.spec-row {
   display: grid;
-  gap: clamp(16px, 2.4vw, 34px);
-  padding-block: clamp(28px, 4vw, 44px);
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 6px 28px;
+  padding-block: clamp(14px, 1.8vw, 19px);
   border-top: 1px solid var(--edge);
 }
 
-.project:first-child {
-  border-top: 0;
-  padding-top: 0;
+.spec-label {
+  color: var(--ink-dim);
+  padding-top: 5px;
 }
 
-.project:last-child {
-  padding-bottom: 0;
+.spec-value {
+  margin: 0;
+  font-size: clamp(15px, 1.35vw, 17px);
+  line-height: 1.62;
+  color: var(--ink);
+  max-width: 62ch;
 }
 
-@media (min-width: 860px) {
-  .project {
-    grid-template-columns: minmax(0, 0.62fr) minmax(0, 1fr);
-  }
-}
-
-.project-head {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.project-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  color: var(--ink-faint);
+.specsheet .project-link {
+  margin-top: clamp(22px, 3vw, 30px);
 }
 
 .project-status {
@@ -774,20 +846,6 @@ ol {
   height: 6px;
   border-radius: 50%;
   background: var(--mint);
-}
-
-.project-name {
-  font-size: clamp(24px, 3.4vw, 38px);
-  font-weight: 600;
-  letter-spacing: -0.032em;
-  line-height: 1.04;
-  color: var(--ink);
-}
-
-.project-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .project-link {
@@ -925,6 +983,15 @@ a.contact-value:hover {
   .timeline-year {
     grid-row: auto;
     grid-column: 1;
+  }
+
+  .spec-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .spec-label {
+    padding-top: 0;
   }
 
   .contact-row {
