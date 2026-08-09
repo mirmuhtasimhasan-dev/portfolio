@@ -1,0 +1,11 @@
+# Normalise text to LF in the repository, whatever the checkout platform does.
+* text=auto eol=lf
+
+# Binary. resume.pdf is mostly ASCII, so Git guesses "text" and would rewrite
+# its line endings — which shifts every byte offset in the xref table and
+# leaves an unopenable file.
+*.pdf   binary
+*.webp  binary
+*.png   binary
+*.jpg   binary
+*.woff2 binary
