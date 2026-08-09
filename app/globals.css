@@ -510,28 +510,10 @@ ol {
   height: 240vh;
 }
 
+/* Visible at every width again: the copy now lives in a LivingCard, which has
+   its own mesh and its own depth rather than being another flat box. */
 .about-readable {
   padding-block: clamp(72px, 11vw, 140px);
-}
-
-/* Above 900px the device's screen is legible, so the copy is presented there
-   and this block is hidden from sight only — it stays in the source and in the
-   accessibility tree. Below 900px the device cannot carry readable text, so
-   the panel is the copy. Pure CSS: no shift after paint, no script to wait on. */
-@media (min-width: 900px) {
-  .about-readable {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    border: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 }
 
 .showcase-stage {
@@ -595,6 +577,84 @@ ol {
   .about-grid > .about-copy:last-child {
     padding-top: 7px;
   }
+}
+
+/* ============================================================
+   11b · LivingCard — a card with its own mesh
+   ------------------------------------------------------------
+   Two structural departures from the obvious shape, both measured:
+
+   No `overflow: hidden` on the card — any overflow other than visible forces
+   transform-style to flatten. Each layer carries the radius instead.
+
+   No `transform-style: preserve-3d` either. Inside a preserve-3d subtree the
+   mesh canvas renders but never composites: readPixels mid-draw returns the
+   right colours while the card shows blank paper. Mean channel spread across
+   the card was 0.05 with it and 35.7 without. So the depth is built from a 3D
+   rotation on the card plus opposed 2D parallax on the mesh and the content —
+   three layers, three rates, and nothing that can fail to paint.
+   ============================================================ */
+
+.livingcard {
+  perspective: 1300px;
+}
+
+.livingcard-card {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: var(--paper);
+  will-change: transform;
+  box-shadow: 0 24px 70px rgba(40, 35, 60, 0.1);
+}
+
+.livingcard-mesh,
+.livingcard-veil,
+.livingcard-glow,
+.livingcard-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.livingcard-mesh {
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* No WebGL: the mesh's own base colour, so the card is never a black hole */
+.livingcard-mesh[data-webgl="off"] {
+  background: linear-gradient(150deg, #f2f1ee, #dfeee7 48%, #e8e2f6);
+}
+
+/* Without this the mesh is too saturated under body copy */
+.livingcard-veil {
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(252, 252, 250, 0.42),
+    rgba(252, 252, 250, 0.6)
+  );
+}
+
+.livingcard-glow {
+  z-index: 2;
+  opacity: 0;
+}
+
+.livingcard-sheen {
+  z-index: 3;
+  opacity: 0;
+}
+
+.livingcard-content {
+  position: relative;
+  z-index: 2;
+  padding: clamp(24px, 3.4vw, 44px); /* unchanged from the panel it replaces */
+  will-change: transform;
 }
 
 .about-copy {

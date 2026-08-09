@@ -20,6 +20,7 @@ things are raw WebGL written against the shaders in the brief:
 | | |
 |---|---|
 | `components/FluidField.tsx` | The metaball field. One fixed canvas behind the page, drawn as a single full-screen triangle. Pointer tracked on `window`, not the canvas — the panels sit on top and would swallow every move. |
+| `components/LivingCard.tsx` | The About card. Its own mesh on its own canvas, so it can move independently of the page — the card tilts toward the cursor, the mesh slides against it, the content drifts with it. Three rates is what the eye reads as depth. |
 | `components/DeviceTile.tsx` | The tilting device. Two triangles drawn twice a frame: reflection first (`u_mirror = 1`), then the device. Blend on, depth off. Used three times — once for About, once per project. |
 
 **First Load JS: 109 kB** (target was under 130).

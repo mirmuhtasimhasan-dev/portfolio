@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { content } from "@/lib/content";
 import PillNav from "@/components/PillNav";
 import DeviceTile from "@/components/DeviceTile";
+import LivingCard from "@/components/LivingCard";
 
 const { identity, hero, about, experience, projects, contact } = content;
 
@@ -50,16 +51,11 @@ export default function Page() {
       <section id="about">
         <DeviceTile shot={about.shot} nav />
 
-        {/* The device's screen carries this copy as pixels. Above 900px it is
-            large enough to read in there, so the DOM copy steps out of view
-            while staying in the HTML and in the accessibility tree — a picture
-            of words is not words. Below 900px the device is far too small for
-            the text to be legible, so it stays on screen as a normal panel.
-            The switch is pure CSS, so nothing moves after paint and nothing
-            depends on a script having run. */}
+        {/* The copy stays DOM inside the card, so the text never goes through
+            a transform of its own and never blurs. */}
         <div className="about-readable">
           <div className="shell">
-            <div className="panel">
+            <LivingCard>
               <div className="section-head">
                 <p className="eyebrow">{about.eyebrow}</p>
               </div>
@@ -77,7 +73,7 @@ export default function Page() {
                   ))}
                 </div>
               </div>
-            </div>
+            </LivingCard>
           </div>
         </div>
       </section>
