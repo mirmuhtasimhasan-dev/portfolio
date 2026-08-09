@@ -96,7 +96,10 @@ phone is a normal event, not the end of the session.
 ## Accessibility and fallbacks
 
 - `prefers-reduced-motion: reduce` — the device renders once, upright, and its
-  loop never starts. The field slows to 0.28×.
+  loop never starts. The field slows to 0.28×. The pointer light is not just
+  disabled, its listeners are never attached: verified at 0 `pointermove`
+  listeners under reduced motion and 0 on a coarse pointer, against 3 on a
+  normal desktop.
 - No WebGL — the field falls back to the CSS gradient painted on `.field`; the
   device falls back to the screenshot in a rounded bordered box at the same size.
 - No JavaScript — every section is server-rendered. The screenshot is the

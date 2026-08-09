@@ -22,6 +22,7 @@ const VERT = `
 attribute vec2 a_pos;
 attribute vec2 a_uv;
 uniform float u_rotX, u_scale, u_aspect, u_yOff, u_mirror;
+uniform float u_tiltX, u_rotY, u_px;
 varying vec2 v_uv;
 
 void main(){
@@ -33,7 +34,15 @@ void main(){
   p = vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c);
   p.y -= 0.5 * u_scale;
 
-  if(u_mirror > 0.5){ p.y = -p.y - 1.06 * u_scale; }
+  // pointer tilt, about the card's own centre rather than the hinge — this is
+  // the bit that reads as a card on a desk rather than a lid opening
+  float cx = cos(u_tiltX), sx = sin(u_tiltX);
+  p = vec3(p.x, p.y * cx - p.z * sx, p.y * sx + p.z * cx);
+  float cy = cos(u_rotY), sy = sin(u_rotY);
+  p = vec3(p.x * cy + p.z * sy, p.y, -p.x * sy + p.z * cy);
+
+  // the ground reflection slides against the tilt, or the light reads as flat
+  if(u_mirror > 0.5){ p.y = -p.y - 1.06 * u_scale; p.x -= u_px * 0.05; }
   p.y += u_yOff;
 
   float d = 3.0;
@@ -49,6 +58,8 @@ varying vec2 v_uv;
 uniform sampler2D u_tex;
 uniform float u_rotX, u_mirror;
 uniform vec3 u_accent, u_bg;
+uniform vec2 u_ptr, u_par;
+uniform float u_hover, u_px;
 
 float rrect(vec2 uv, vec2 half_, float r){
   vec2 p = abs(uv - 0.5) - (half_ - r);
@@ -65,18 +76,32 @@ void main(){
   float scr = rrect(v_uv, vec2(0.478, 0.470), 0.020);
   float scrMask = smoothstep(aa, -aa, scr);
 
-  vec2 suv = (v_uv - 0.5) / vec2(0.956, 0.940) + 0.5;
+  // the screen content parallaxes a touch against the bezel under the pointer
+  vec2 suv = (v_uv - 0.5) / vec2(0.956, 0.940) + 0.5 + u_par;
   vec3 shot = texture2D(u_tex, suv).rgb;
 
   vec3 bezel = mix(u_bg * 0.55, u_bg * 0.95, smoothstep(0.0, 1.0, v_uv.y));
   vec3 col = mix(bezel, shot, scrMask);
 
-  // specular sweep — travels as the lid rotates
+  // specular sweep — travels as the lid rotates, and with the pointer
   float band = v_uv.x * 0.8 + v_uv.y * 0.6;
-  float sweep = smoothstep(0.22, 0.0, abs(band - (0.35 + u_rotX * 0.75)));
-  col += vec3(0.85, 0.90, 1.0) * sweep * 0.13 * (0.35 + u_rotX);
+  float sweep = smoothstep(0.22, 0.0, abs(band - (0.35 + u_rotX * 0.75 + u_px * 0.34)));
+  col += vec3(0.85, 0.90, 1.0) * sweep * (0.13 + u_hover * 0.05) * (0.35 + u_rotX);
 
   col *= 1.0 - u_rotX * 0.22;                       // darkens as it leans away
+
+  // a soft hot spot under the cursor — what makes the surface read as lit
+  // rather than merely tilted. Never on the reflection: light does not bounce
+  // brighter off the floor than off the thing casting it.
+  // Composited toward white, not added: the screen is already near-paper, and
+  // adding 0.30 there clips to flat white and swallows the copy under the
+  // cursor. mix() cannot exceed white, so this lifts the field's colour where
+  // there is headroom and leaves the light areas alone — which is what a
+  // highlight on a matte page actually does.
+  if(u_mirror < 0.5){
+    vec2 d = (v_uv - u_ptr) * vec2(1.6, 1.0);
+    col = mix(col, vec3(1.0), smoothstep(0.30, 0.0, length(d)) * 0.16 * u_hover);
+  }
 
   float rim = smoothstep(0.012, 0.0, abs(body)) * (1.0 - scrMask);
   col += u_accent * rim * 0.55;                      // accent on the bezel edge
@@ -195,6 +220,26 @@ export default function DeviceTile({
     let uAspect: WebGLUniformLocation | null = null;
     let uYOff: WebGLUniformLocation | null = null;
     let uMirror: WebGLUniformLocation | null = null;
+    let uTiltX: WebGLUniformLocation | null = null;
+    let uRotY: WebGLUniformLocation | null = null;
+    let uPx: WebGLUniformLocation | null = null;
+    let uPtr: WebGLUniformLocation | null = null;
+    let uPar: WebGLUniformLocation | null = null;
+    let uHover: WebGLUniformLocation | null = null;
+
+    /* Pointer light. Targets are set by the listeners; nothing is written to a
+       uniform outside the frame loop. All zero when not hovering, so the
+       damping alone carries the card back — it never snaps. */
+    const DEG = Math.PI / 180;
+    const canHover = window.matchMedia(
+      "(hover: hover) and (pointer: fine)",
+    ).matches;
+    let tPx = 0;
+    let tPy = 0;
+    let tHover = 0;
+    let pxv = 0;
+    let pyv = 0;
+    let hoverv = 0;
 
     function ensureContext(): boolean {
       if (gl) return true;
@@ -282,6 +327,12 @@ export default function DeviceTile({
       uAspect = gl.getUniformLocation(prog, "u_aspect");
       uYOff = gl.getUniformLocation(prog, "u_yOff");
       uMirror = gl.getUniformLocation(prog, "u_mirror");
+      uTiltX = gl.getUniformLocation(prog, "u_tiltX");
+      uRotY = gl.getUniformLocation(prog, "u_rotY");
+      uPx = gl.getUniformLocation(prog, "u_px");
+      uPtr = gl.getUniformLocation(prog, "u_ptr");
+      uPar = gl.getUniformLocation(prog, "u_par");
+      uHover = gl.getUniformLocation(prog, "u_hover");
 
       const accent = readColor("--mint", [0.639, 0.886, 0.816]);
       const bg = readColor("--paper", [0.961, 0.953, 0.937]);
@@ -345,11 +396,27 @@ export default function DeviceTile({
 
     function draw() {
       if (!gl || !prog) return;
+      const s = scale * fit;
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform1f(uRotX, rotX);
-      gl.uniform1f(uScale, scale * fit);
+      gl.uniform1f(uScale, s);
       gl.uniform1f(uAspect, aspect);
-      gl.uniform1f(uYOff, yOff);
+      /* the lift: -4px of a 900px stage, expressed in NDC */
+      gl.uniform1f(uYOff, yOff + hoverv * 0.009);
+
+      /* Kept small on purpose. Past about 7° this stops reading as a card on
+         a desk and starts reading as a novelty. */
+      gl.uniform1f(uTiltX, pyv * -4.5 * DEG);
+      gl.uniform1f(uRotY, pxv * 5.5 * DEG);
+      gl.uniform1f(uPx, pxv);
+      gl.uniform1f(uHover, hoverv);
+      gl.uniform2f(uPar, pxv * 0.014, pyv * 0.010);
+      /* the cursor in the quad's own UV space, so the hot spot lands under it */
+      gl.uniform2f(
+        uPtr,
+        0.5 + (pxv * aspect) / (0.8 * s),
+        0.5 + (2 * pyv) / s,
+      );
 
       gl.uniform1f(uMirror, 1); // reflection first…
       gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -426,6 +493,12 @@ export default function DeviceTile({
       scale += (tScale - scale) * k;
       yOff += (tYOff - yOff) * k;
       navOpacity += (tNav - navOpacity) * k;
+
+      /* the pointer light damps a little faster, 0.12 per frame */
+      const kp = 1 - Math.pow(0.88, (dt / 1000) * 60);
+      pxv += (tPx - pxv) * kp;
+      pyv += (tPy - pyv) * kp;
+      hoverv += (tHover - hoverv) * kp;
 
       draw();
       placeNav();
@@ -545,6 +618,29 @@ export default function DeviceTile({
       if (near) hydrate();
     }
 
+    /* Only where a real pointer can hover, and never under reduced motion —
+       there the existing fixed sweep is the whole of the surface quality.
+       The handlers set targets and nothing else; every uniform write happens
+       in the frame loop, which is already parked when the tile is off screen. */
+    function onPtrMove(e: PointerEvent) {
+      const r = canvas!.getBoundingClientRect();
+      tPx = (e.clientX - r.left) / r.width - 0.5;
+      tPy = (e.clientY - r.top) / r.height - 0.5;
+      tHover = 1;
+    }
+
+    function onPtrLeave() {
+      tPx = 0;
+      tPy = 0;
+      tHover = 0;
+    }
+
+    const lit = canHover && !reduced;
+    if (lit) {
+      stage.addEventListener("pointermove", onPtrMove, { passive: true });
+      stage.addEventListener("pointerleave", onPtrLeave, { passive: true });
+    }
+
     img.addEventListener("load", onImgLoad);
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("resize", onResize);
@@ -556,6 +652,10 @@ export default function DeviceTile({
       stop();
       nearIO.disconnect();
       seenIO.disconnect();
+      if (lit) {
+        stage.removeEventListener("pointermove", onPtrMove);
+        stage.removeEventListener("pointerleave", onPtrLeave);
+      }
       img.removeEventListener("load", onImgLoad);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("resize", onResize);
