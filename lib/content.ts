@@ -34,16 +34,24 @@ export type Shot = {
   alt: string;
 };
 
-/** One labelled row of a project's spec sheet. */
-export type Spec = { label: string; value: string };
+/**
+ * One figure in the About card's footer. `value` is the number that counts
+ * up; `suffix` is held out of the animation and never changes.
+ */
+export type Stat = { value: number; suffix: string; label: string };
 
 export type Project = {
   index: string;
   name: string;
   year: string;
-  /** rendered as the first row, with the mint dot */
+  /** rendered as the pill with the mint dot */
   status: string;
-  specs: Spec[];
+  /** one muted line under the accent rule — what it is, in a breath */
+  tagline: string;
+  /** the description. It carries no label, so it has to open by itself. */
+  summary: string;
+  /** rendered as pills, in the same glass as the About card's */
+  stack: string[];
   href: string;
   shot: Shot;
 };
@@ -79,7 +87,11 @@ export type Content = {
     body: string[];
     principlesEyebrow: string;
     principles: Principle[];
-    /** The screenshot shown in the tilting device. */
+    /** The pills under the headline. Cased naturally — .mono uppercases. */
+    stack: string[];
+    /** The card's footer figures. */
+    stats: Stat[];
+    /** Unplaced — see the note at the value. */
     shot: Shot;
   };
   experience: {
@@ -114,11 +126,14 @@ export const content: Content = {
     sub: "React and Next.js on the surface, Nginx, PM2 and a VPS underneath.",
   },
 
+  /* Page order. The active-section observer keys off these ids, and the pill
+     reads left to right, so this list has to walk down the page — Projects
+     sits with About now, not after Experience. */
   nav: [
     { id: "home", label: "Home" },
     { id: "about", label: "About" },
-    { id: "experience", label: "Experience" },
     { id: "projects", label: "Projects" },
+    { id: "experience", label: "Experience" },
     { id: "contact", label: "Contact" },
   ],
 
@@ -157,9 +172,29 @@ export const content: Content = {
         body: "A passing build is not a finished job. I provision the server, configure the proxy, renew the certificates, and answer for it when something breaks at 3am.",
       },
     ],
-    /* What the device's screen shows: a real 2400×1500 capture of the About Me
-       card below it. WebP because the field's per-pixel noise makes a PNG of
-       the same frame 2.3 MB — see README for how to regenerate. */
+    /* The surface of the stack, in the order it is met: what the page is
+       written in, then what serves it. Not the same list as experience.toolset
+       — that one is the whole toolbox, this one is the spine. */
+    stack: [
+      "React",
+      "Next.js",
+      "TypeScript",
+      "Tailwind",
+      "Nginx",
+      "PM2",
+      "VPS",
+    ],
+
+    stats: [
+      { value: 5, suffix: "+", label: "Years coding" },
+      { value: 4, suffix: "+", label: "Projects built" },
+      { value: 2, suffix: "+", label: "Live in production" },
+    ],
+
+    /* Kept, but no longer placed on the page — the About device holds the real
+       card now, not a capture of it, so there is nothing left for this to
+       stand in for. Same reinstatement note as `principles` above: it is here
+       because it is still true, not because something renders it. */
     shot: {
       src: "/showcase.webp",
       width: 2400,
@@ -202,29 +237,20 @@ export const content: Content = {
 
   projects: {
     eyebrow: "Projects",
-    heading: "Selected work",
+    /* Drawn into a canvas by LensHeading, so the apostrophe is the
+       typographic one the rest of the copy uses — it is rasterised, not
+       parsed, and a straight quote would read as a different mark. */
+    heading: "Things I've shipped",
     items: [
       {
         index: "01",
         name: "Zubayer.life",
         year: "2026",
         status: "Live",
-        specs: [
-          {
-            label: "What",
-            value:
-              "Portfolio and living archive for a Dhaka filmmaker and brand consultant. Organised by intent rather than by medium, content-managed through Sanity so new films, photo series and essays publish without a deploy.",
-          },
-          {
-            label: "Stack",
-            value: "Next.js · TypeScript · Sanity · Tailwind",
-          },
-          {
-            label: "Infra",
-            value:
-              "A Node process behind an Nginx reverse proxy on a VPS I provisioned, kept alive by PM2, certificates renewing on their own.",
-          },
-        ],
+        tagline: "Filmmaker portfolio & living archive",
+        summary:
+          "Portfolio and living archive for a Dhaka filmmaker and brand consultant. Organised by intent rather than by medium, content-managed through Sanity so new films, photo series and essays publish without a deploy.",
+        stack: ["Next.js", "TypeScript", "Sanity", "Tailwind"],
         href: "https://zubayer.life",
         shot: {
           src: "/projects/zubayer.webp",
@@ -238,17 +264,12 @@ export const content: Content = {
         name: "RentTime",
         year: "2025",
         status: "Live",
-        specs: [
-          {
-            label: "What",
-            value:
-              "Rental marketplace where listing and availability state stays honest while several users act on the same property at once. Firestore resolves a change everywhere without a refresh.",
-          },
-          {
-            label: "Stack",
-            value: "React · Tailwind · Firebase · Firestore · Node.js",
-          },
-        ],
+        /* Drawn from the summary below rather than written fresh: the honest
+           one-line version of what the next sentence says at length. */
+        tagline: "Rental marketplace with live availability",
+        summary:
+          "Rental marketplace where listing and availability state stays honest while several users act on the same property at once. Firestore resolves a change everywhere without a refresh.",
+        stack: ["React", "Tailwind", "Firebase", "Firestore", "Node.js"],
         href: "https://rent-time-bd.web.app/",
         shot: {
           src: "/projects/renttime.webp",

@@ -1,8 +1,10 @@
-import { Fragment } from "react";
 import { content } from "@/lib/content";
 import PillNav from "@/components/PillNav";
-import DeviceTile from "@/components/DeviceTile";
+import HeroName from "@/components/HeroName";
+import AboutDevice from "@/components/AboutDevice";
 import LivingCard from "@/components/LivingCard";
+import AboutStats from "@/components/AboutStats";
+import ProjectShowcase from "@/components/ProjectShowcase";
 
 const { identity, hero, about, experience, projects, contact } = content;
 
@@ -22,7 +24,7 @@ export default function Page() {
           {identity.availability}
         </p>
 
-        <h1 className="hero-name">{identity.greeting}</h1>
+        <HeroName text={identity.greeting} />
 
         <p className="hero-sub">
           {identity.headline} {identity.sub}
@@ -47,38 +49,58 @@ export default function Page() {
         </p>
       </section>
 
-      {/* ── 2 · About ──────────────────────────────────────────── */}
+      {/* ── 2 · About ───────────────────────────────────────────
+          One About, on the lid. The device carries the real card rather
+          than a capture of it, so the copy is live text and the mesh
+          behind the glass answers the cursor here as it does anywhere. */}
       <section id="about">
-        <DeviceTile shot={about.shot} nav />
+        <AboutDevice>
+          <LivingCard>
+            <div className="section-head">
+              <p className="eyebrow">{about.eyebrow}</p>
+            </div>
 
-        {/* The copy stays DOM inside the card, so the text never goes through
-            a transform of its own and never blurs. */}
-        <div className="about-readable">
-          <div className="shell">
-            <LivingCard>
-              <div className="section-head">
-                <p className="eyebrow">{about.eyebrow}</p>
-              </div>
+            <div className="about-grid">
+              <div className="about-copy">
+                <h2 className="h2 about-quote">{about.heading}</h2>
 
-              <div className="about-grid">
-                <div className="about-copy">
-                  <h2 className="h2 about-quote">{about.heading}</h2>
-                </div>
-
-                <div className="about-copy">
-                  {about.body.map((paragraph) => (
-                    <p className="prose" key={paragraph.slice(0, 24)}>
-                      {paragraph}
-                    </p>
+                <ul className="about-pills">
+                  {about.stack.map((tool) => (
+                    <li className="pill mono" key={tool}>
+                      {tool}
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
-            </LivingCard>
-          </div>
-        </div>
+
+              <div className="about-copy">
+                {about.body.map((paragraph) => (
+                  <p className="prose" key={paragraph.slice(0, 24)}>
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <AboutStats items={about.stats} />
+          </LivingCard>
+        </AboutDevice>
       </section>
 
-      {/* ── 3 · Experience ─────────────────────────────────────── */}
+      {/* ── 3 · Projects ─────────────────────────────────────────
+          A horizontal showcase on a vertical scroll: the section pins and
+          the rail slides sideways, one project at a time. It sits with
+          About because the two share a motion — the same spring carries
+          the lid open and the rail across. */}
+      <section id="projects">
+        <ProjectShowcase
+          eyebrow={projects.eyebrow}
+          heading={projects.heading}
+          items={projects.items}
+        />
+      </section>
+
+      {/* ── 4 · Experience ─────────────────────────────────────── */}
       <section id="experience" className="section">
         <div className="shell">
           <div className="panel">
@@ -111,67 +133,6 @@ export default function Page() {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ── 4 · Projects ─────────────────────────────────────────
-          One device tile per project, in the same motion as About: the
-          screen carries a real capture of the live site, and the copy —
-          which the screenshot does not contain — follows it as a panel. */}
-      <section id="projects">
-        <div className="section on-field">
-          <div className="shell">
-            <div className="section-head">
-              <p className="eyebrow">{projects.eyebrow}</p>
-              <h2 className="h2">{projects.heading}</h2>
-            </div>
-          </div>
-        </div>
-
-        {projects.items.map((project) => (
-          <Fragment key={project.index}>
-            <DeviceTile shot={project.shot} />
-
-            <div className="section on-field">
-              <div className="shell">
-                <div className="specsheet">
-                  <div className="spec-head">
-                    <h3 className="spec-name">{project.name}</h3>
-                    <p className="spec-index mono">
-                      <span>{project.index}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{project.year}</span>
-                    </p>
-                  </div>
-
-                  <dl className="spec-rows">
-                    <div className="spec-row">
-                      <dt className="spec-label mono">Status</dt>
-                      <dd className="spec-value">
-                        <span className="project-status">{project.status}</span>
-                      </dd>
-                    </div>
-                    {project.specs.map((spec) => (
-                      <div className="spec-row" key={spec.label}>
-                        <dt className="spec-label mono">{spec.label}</dt>
-                        <dd className="spec-value">{spec.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-
-                  <a
-                    className="project-link mono"
-                    href={project.href}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    <span aria-hidden="true">→</span>
-                    Visit {project.name}
-                  </a>
-                </div>
-              </div>
-            </div>
-          </Fragment>
-        ))}
       </section>
 
       {/* ── 5 · Contact ────────────────────────────────────────── */}

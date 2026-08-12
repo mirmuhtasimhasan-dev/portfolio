@@ -319,10 +319,10 @@ ol {
 }
 
 /* The copy that floats over the device's top edge in §5. It lives inside
-   the sticky stage, so it holds that edge instead of scrolling off it.
-   Purely decorative — it only appears once the device is running. */
+   the sticky stage, so it holds that edge instead of scrolling off it, and
+   outside the lid, so it does not lean with it. Purely decorative — it fades
+   in with the section and fades out again as the section leaves. */
 .nav-floating {
-  display: none;
   position: absolute;
   left: 50%;
   top: 0;
@@ -331,10 +331,9 @@ ol {
   max-width: calc(100% - var(--gutter) * 2);
   transform: translate3d(-50%, calc(var(--edge-y, 0) * 1px - 50%), 0);
   will-change: transform;
-}
-
-.showcase-stage[data-mode="gl"] .nav-floating {
-  display: block;
+  /* the script raises it; without JS it stays out of the way */
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ============================================================
@@ -423,6 +422,68 @@ ol {
   line-height: 0.98;
   color: var(--ink);
   max-width: 15ch;
+  /* the letters' offsetParent, so their cached offsets are theirs and not
+     some ancestor's — see HeroName.tsx on why offsets and not rects */
+  position: relative;
+}
+
+/* ------------------------------------------------------------------
+   §9b · The name under the cursor.
+
+   Untouched by default: a letter is a plain inline-block carrying the
+   inherited --ink, and every rule that changes that sits behind the
+   data-lit the script only sets for a real pointer that has not asked
+   for reduced motion.
+   ------------------------------------------------------------------ */
+
+.hn-l {
+  /* a bare inline box cannot be transformed; this is the whole reason the
+     letters are inline-block, and it costs no layout — letter-spacing is
+     applied per character either way */
+  display: inline-block;
+  vertical-align: baseline;
+  transform-origin: 50% 100%;
+}
+
+.hero-name[data-lit] .hn-l {
+  will-change: transform;
+}
+
+/* The blob palette, taken down toward --ink until it clears large-text
+   contrast over the hero's wash: peach 3.89:1, lilac 4.46:1, mint 3.39:1,
+   all above the 3:1 the 40–96px name is held to. At full strength the
+   tokens measure 1.47:1 — the right hues, but not readable as type. */
+.hero-name[data-lit] {
+  --hn-a: color-mix(in srgb, var(--peach) 55%, var(--ink));
+  --hn-b: color-mix(in srgb, var(--lilac) 55%, var(--ink));
+  --hn-c: color-mix(in srgb, var(--mint) 55%, var(--ink));
+}
+
+/* Both features are load-bearing: without background-clip the letters would
+   be transparent, and without color-mix the gradient would be invalid and do
+   the same. Neither failure is survivable, so neither is assumed. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) and
+  (color: color-mix(in srgb, red, blue)) {
+  .hero-name[data-lit] .hn-l {
+    /* One circle across the whole name: each letter draws the same gradient
+       over the name's full box, then slides it back by where the letter sits
+       (--ox/--oy), so the seams line up exactly. The last stop is --ink, not
+       transparent — that is what leaves every letter outside the circle at
+       its default colour rather than invisible. */
+    background-image: radial-gradient(
+      circle 130px at var(--gx, -999px) var(--gy, -999px),
+      var(--hn-a) 0%,
+      var(--hn-b) 42%,
+      var(--hn-c) 68%,
+      var(--ink) 100%
+    );
+    background-size: var(--w) var(--h);
+    background-position: calc(-1 * var(--ox, 0px)) calc(-1 * var(--oy, 0px));
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 .hero-sub {
@@ -498,25 +559,26 @@ ol {
 
 /* ============================================================
    11 · About — the device
+   ------------------------------------------------------------
+   The lid is DOM and the card on it is the real card, so this is a
+   frame around live text rather than a quad sampling a screenshot.
+   Nothing here sets transform-style: preserve-3d — see §11b for why
+   the card's canvas cannot survive it — so the lid takes a single
+   flattening rotateX and the card keeps its own depth inside that.
    ============================================================ */
 
 #about {
-  /* contains .about-readable once it is taken out of flow below */
   position: relative;
 }
 
-.showcase {
+/* The scroll track. The stage pins inside it and the lid opens as it does,
+   so the distance here is the length of the opening, not of any content. */
+.device {
   position: relative;
   height: 240vh;
 }
 
-/* Visible at every width again: the copy now lives in a LivingCard, which has
-   its own mesh and its own depth rather than being another flat box. */
-.about-readable {
-  padding-block: clamp(72px, 11vw, 140px);
-}
-
-.showcase-stage {
+.device-stage {
   position: sticky;
   top: 0;
   height: 100vh;
@@ -524,42 +586,133 @@ ol {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  padding-inline: var(--gutter);
+  /* Far enough back that the lean is depth rather than a fisheye — and tied
+     to the width, because that is what the lid is tied to. A fixed distance
+     would foreshorten a wide lid far harder than a narrow one and the lean
+     would read as a different gesture at either end. This is 1.7x the width
+     expression below, term for term, so the ratio holds at every viewport. */
+  perspective: min(153vw, 228vh);
+  perspective: min(153vw, 228svh);
 }
 
-.showcase-canvas {
+/* §5 — the original device's geometry, restored.
+   The old WebGL tile sized itself with fit = min(1.68, 0.94 * aspect / 0.8),
+   which is a 16:10 screen fitted to whichever axis is tighter: 94% of the
+   stage's width, or 84% of its height. That is what made it read as a laptop
+   filling the page rather than a strip of card. Here the same two limits are
+   the two terms below — 134.4vh is 84vh of 16:10 turned into a width, and
+   56.25vw is 90vw of it turned into a height.
+
+   min-height, not height: the frame holds its full stature when the copy is
+   short — which is the point, and why the content centres itself inside it —
+   but a viewport that leaves the copy taller than the frame grows the frame
+   instead of cutting it off. A screenshot could be scaled to fit. Live text
+   cannot. */
+.device-lid {
+  position: relative;
+  display: flex;
+  width: min(90vw, 134.4vh);
+  width: min(90vw, 134.4svh);
+  min-height: min(84vh, 56.25vw);
+  min-height: min(84svh, 56.25vw);
+  --bezel-pad: clamp(10px, 1.3vw, 18px);
+  /* concentric with the card's own 20px corner at every width: an outer
+     radius is only ever inner + the gap between them */
+  --lid-radius: calc(20px + var(--bezel-pad));
+  /* hinged at the bottom edge, so it opens like a lid and not like a card
+     spinning about its middle */
+  transform-origin: 50% 100%;
+}
+
+/* The bezel the old fragment shader drew: paper darkened to 0.55 at the top
+   edge and back to 0.95 at the bottom, with the accent as a rim light on the
+   outer edge. */
+.device-bezel {
+  position: relative;
+  /* fills the lid, so the screen is the frame's full stature and not a card
+     floating in a thick band of bezel */
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+  padding: var(--bezel-pad);
+  border-radius: var(--lid-radius);
+  background: linear-gradient(180deg, #878583 0%, #b8b6b1 52%, #e9e7e3 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 0 0 1px rgba(163, 226, 208, 0.55),
+    0 60px 90px -42px rgba(23, 21, 25, 0.44),
+    0 14px 30px -14px rgba(23, 21, 25, 0.2);
+}
+
+/* The specular band. Oversized and clipped by the bezel so it can travel
+   across as the lid opens on nothing but a transform — a gradient redrawn
+   every frame is its own jank (§11b). */
+.device-sweep {
+  position: absolute;
+  top: -20%;
+  left: -60%;
+  width: 220%;
+  height: 140%;
+  z-index: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 58%
+  );
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* The card sits on the bezel, above the sweep. */
+.device-bezel > .livingcard {
+  position: relative;
+  z-index: 1;
+}
+
+/* The screen fills the frame. Stretch rather than a height: 100% chain — the
+   lid's height comes from min-height against auto content, so there is no
+   definite height for a percentage to resolve against, and every link would
+   silently fall back to auto. Flex needs no definite height to stretch. */
+.device-bezel > .livingcard,
+.device-bezel .livingcard-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.device-bezel .livingcard-card {
+  flex-direction: column;
+}
+
+/* Scoped to the device rather than raised on .livingcard-content itself: the
+   card is a general component, and this is the one place that wants a screen's
+   worth of margin around the copy and the copy balanced on the screen.
+
+   justify-content: center cannot strand the top of the copy here — the lid
+   grows past its min-height before the content could ever outgrow this box,
+   so the free space being distributed is never negative. */
+.device-bezel .livingcard-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(28px, 3.6vw, 60px);
+}
+
+/* Leaning away takes the whole device into shadow, as the shader's
+   1 - rotX * 0.22 did. An opacity the compositor animates, so the copy
+   underneath is never re-rasterised for it. */
+.device-dim {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  z-index: 2;
+  border-radius: var(--lid-radius);
+  background: #171519;
   opacity: 0;
-  transition: opacity 0.55s var(--ease);
-}
-
-.showcase-canvas[data-webgl="on"] {
-  opacity: 1;
-}
-
-/* No WebGL and no JavaScript: the screenshot in a rounded bordered box at
-   the same size. The device replaces it once it is running. */
-.showcase-fallback {
-  width: min(90%, 900px);
-  aspect-ratio: 16 / 10;
-  border-radius: 16px;
-  border: 1px solid var(--edge);
-  overflow: hidden;
-  background: var(--paper);
-  box-shadow: 0 40px 80px -40px rgba(23, 21, 25, 0.4);
-}
-
-.showcase-fallback img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.showcase-stage[data-mode="gl"] .showcase-fallback {
-  display: none;
+  pointer-events: none;
 }
 
 .about-grid {
@@ -668,6 +821,118 @@ ol {
   line-height: 1.24;
   letter-spacing: -0.024em;
   max-width: 26ch;
+}
+
+/* ------------------------------------------------------------------
+   §11d · The stack, and the figures under it.
+
+   Both exist to give the left column something to stand on: the
+   headline is 26ch and the body beside it is 62ch, so the column ran
+   out long before the card did. These fill it from the same
+   material rather than with more prose.
+   ------------------------------------------------------------------ */
+
+.about-pills {
+  display: flex;
+  flex-wrap: wrap; /* on a phone this is several lines, and that is fine */
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* The page's glass, at pill scale — shared by the About card's stack and the
+   project panel's, so the two read as the same object in two places. Unlike
+   every other frosted thing here this one does blur: it sits on a card rather
+   than on the bare field, so there is real colour behind it to soften, and a
+   pill of ~100x28 is a small enough area to ask a backdrop for. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 0.5px solid var(--edge);
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(6px) saturate(1.4);
+  -webkit-backdrop-filter: blur(6px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+/* The status pill carries the page's one accent, the same mint dot the old
+   status row used. */
+.pill-live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mint);
+  flex: none;
+}
+
+.about-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: clamp(28px, 4vw, 46px);
+  padding-top: clamp(22px, 3vw, 32px);
+  border-top: 1px solid var(--edge);
+}
+
+.about-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding-inline: 10px;
+  border-left: 1px solid var(--edge);
+}
+
+.about-stat:first-child {
+  border-left: 0;
+}
+
+.about-stat-value {
+  font-size: clamp(28px, 3.4vw, 36px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--ink);
+  /* the digits change width as they count; tabular figures stop the row
+     from twitching sideways on the way up */
+  font-variant-numeric: tabular-nums;
+}
+
+.about-stat-label {
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  color: var(--ink-faint);
+}
+
+/* Narrow: the three labels cannot hold a row this tight, so they stack and
+   the dividers turn with them. */
+@media (max-width: 560px) {
+  .about-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .about-stat {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 12px;
+    text-align: left;
+    padding-inline: 0;
+    padding-block: 12px;
+    border-left: 0;
+    border-top: 1px solid var(--edge);
+  }
+
+  .about-stat:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
 }
 
 .principles {
@@ -780,149 +1045,603 @@ ol {
 }
 
 /* ============================================================
-   13 · Projects — spec sheets on the bare field
+   13 · Projects — a horizontal showcase on a vertical scroll
+   ------------------------------------------------------------
+   Stacked by default and pinned only where the script says so. A
+   rail is the enhancement: the base layout has to be the one that
+   works with no JavaScript, under reduced motion and on a phone,
+   or those three land on a clipped rail showing one project.
+
+   Nothing here blurs. .panel's backdrop-filter is the most
+   expensive thing on this page (§7), and a backdrop inside a
+   transformed ancestor is resampled every frame of the slide — so
+   the glass is built from the same gradient and inset highlights
+   with the blur left out. Over a field this soft, the blur was
+   never what was doing the work.
    ============================================================ */
 
-/* §7 — a block that sits on the field instead of on glass. Same trick as the
-   hero: a flat 0.55 paper band that fades above and below, no blur, so it
-   costs nothing. Over the field's darkest stop (#2d283e) that band reads as
-   L 0.32, which puts --ink at 6.47:1 and --ink-dim at 4.89:1 — but --ink-faint
-   at only 4.10:1. So --ink-faint is overridden away inside here. */
-/* Goes on the full-width .section, not on the copy, so the wash spans the page
-   and every edge fades out in the margins instead of beside the text. 100% of
-   a block element, never 100vw — vw includes the scrollbar and would push the
-   document wider than the viewport. */
-.on-field {
+.hshow {
   position: relative;
-  /* distance from the page edge to the first character of copy */
-  --wash-x: calc((100% - min(100%, var(--shell))) / 2 + var(--gutter));
-  --wash-y: clamp(72px, 11vw, 140px); /* matches .section's padding-block */
 }
 
-.on-field::before {
+.hshow-stage {
+  padding-block: clamp(72px, 11vw, 140px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(22px, 3vw, 38px);
+}
+
+/* Pinned, height is the scarce axis, not width — a 1366x768 laptop has plenty
+   of the one and none of the other. So every gap the rail owns is measured in
+   vh: the section tightens itself on a short screen instead of overflowing a
+   viewport it cannot scroll. Sized from the tightest real case and checked at
+   each step down; below the floor in the script the rail hands over to the
+   stacked layout, which can simply be as tall as it needs. */
+.hshow[data-mode="rail"] .hshow-stage {
+  gap: clamp(14px, 2.2vh, 34px);
+}
+
+.hshow[data-mode="rail"] .hshow-head {
+  gap: clamp(6px, 1.1vh, 10px);
+}
+
+.hshow[data-mode="rail"] .h2 {
+  font-size: clamp(23px, 3.4vh, 44px);
+}
+
+.hshow[data-mode="rail"] .hshow-copy {
+  padding: clamp(20px, 3vh, 40px);
+  /* the 18px rhythm, allowed to tighten on a short screen */
+  gap: clamp(12px, 1.8vh, 18px);
+}
+
+.hshow[data-mode="rail"] .hshow-name {
+  font-size: clamp(24px, 3vw, 42px);
+}
+
+/* One width for the header and every slide, so the eyebrow's rule and the
+   preview's left edge line up. Same expression as the About lid. */
+.hshow-wrap {
+  width: min(90vw, 1400px);
+  margin-inline: auto;
+}
+
+/* The one run of copy in this section that is not on glass, so it carries
+   §7's wash instead — flat behind the text, faded on all four sides, no blur.
+   Without it --ink measures 1.33:1 over the field's darkest stop; with it,
+   9.65:1, and --ink-faint 6.05:1. The blobs stay visible everywhere the
+   header is not, which is most of the section. */
+.hshow-head {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* the heading's 1.15 line box already carries air above and below it, so
+     the block reads compact at a smaller gap than the parts suggest */
+  gap: 10px;
+}
+
+.hshow-head::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -24px -5vw;
   background: linear-gradient(
     180deg,
-    rgba(245, 243, 239, 0) 0,
-    rgba(245, 243, 239, 0.55) var(--wash-y),
-    rgba(245, 243, 239, 0.55) calc(100% - var(--wash-y)),
+    rgba(245, 243, 239, 0) 0%,
+    rgba(245, 243, 239, 0.66) 20%,
+    rgba(245, 243, 239, 0.66) 80%,
     rgba(245, 243, 239, 0) 100%
   );
-  /* The sides have to fade too, or the band has hard left and right edges and
-     reads as the card it exists not to be. Both fades finish exactly where the
-     copy starts, so the text still sits on a flat 0.55 and the measured
-     contrast holds: --ink 6.47:1, --ink-dim 4.89:1 over the field's darkest
-     stop. --ink-faint would only reach 4.10:1, so it is overridden below. */
   -webkit-mask-image: linear-gradient(
     90deg,
     transparent 0,
-    #000 var(--wash-x),
-    #000 calc(100% - var(--wash-x)),
+    #000 5vw,
+    #000 calc(100% - 5vw),
     transparent 100%
   );
   mask-image: linear-gradient(
     90deg,
     transparent 0,
-    #000 var(--wash-x),
-    #000 calc(100% - var(--wash-x)),
+    #000 5vw,
+    #000 calc(100% - 5vw),
     transparent 100%
   );
   pointer-events: none;
 }
 
-.on-field > * {
+.hshow-head > * {
   position: relative;
 }
 
-.on-field .eyebrow {
+.hshow-headrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px 28px;
+}
+
+.hshow-count {
+  display: flex;
+  gap: 7px;
+  flex: none;
   color: var(--ink-dim);
 }
 
-.spec-head {
+/* ---- the heading, and the canvas that may take it over ----------- */
+
+/* The plain h2 is the resting state, not the fallback: it is what renders
+   with no JavaScript, no WebGL, no pointer, or reduced motion. The canvas is
+   only switched on once all four say yes, and data-on is what says so. */
+.lens {
+  position: relative;
+  min-width: 0;
+}
+
+.lens-title,
+.lens-metric {
+  display: block;
+  font-size: clamp(40px, 5vw, 72px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  /* room for the descenders in "shipped" and for the fringe to sit in */
+  line-height: 1.15;
+  color: #1a1a1a;
+}
+
+.lens-metric,
+.lens-canvas {
+  display: none;
+}
+
+/* Out of sight, still in the accessibility tree — the heading is read as a
+   heading whether or not it is being drawn by a shader. */
+.lens[data-on] .lens-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Holds the box open at exactly the size the h2 had, and keeps a text
+   baseline so the counter beside it still aligns to one. */
+.lens[data-on] .lens-metric {
+  display: block;
+  visibility: hidden;
+}
+
+.lens[data-on] .lens-canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hshow-bar {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--edge);
+  overflow: hidden;
+}
+
+.hshow-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  will-change: transform;
+}
+
+/* Stacked: the rail is just a column and every project is on the page. */
+.hshow-rail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(56px, 8vw, 96px);
+}
+
+/* ---- the panel: one piece of glass holding both halves ----------- */
+
+/* Contrast note, unchanged from the two-card version and now carried here:
+   over the field's darkest stop (#2d283e) this sheet composites to L 0.40,
+   which puts --ink at 8.0:1 and --ink-dim at 5.98:1. On the raw field neither
+   clears, which is why the copy is on glass at all. */
+.hshow-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  /* the ghost numeral runs off the corner and this is what cuts it */
+  overflow: hidden;
+  border-radius: 24px;
+  border: 0.5px solid var(--edge);
+  background: linear-gradient(
+    168deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(255, 255, 255, 0.6)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 44px 84px -34px rgba(23, 21, 25, 0.34),
+    0 10px 26px -12px rgba(23, 21, 25, 0.16);
+}
+
+@media (min-width: 900px) {
+  .hshow-panel {
+    grid-template-columns: 58% minmax(0, 1fr);
+  }
+}
+
+/* ---- the preview: a browser frame around the shot ---------------- */
+
+/* Edge to edge: no padding, no frame of its own. The panel's own overflow
+   rounds the two left corners for it, so the preview is simply the left part
+   of the panel rather than something sitting inside it. */
+.hshow-preview {
+  display: flex;
+  min-width: 0;
+  min-height: 240px;
+  will-change: transform;
+}
+
+.browser {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* The divider is the copy column's border; the preview needs no edge of its
+   own beyond it. */
+@media (min-width: 900px) {
+  .browser {
+    height: 100%;
+  }
+}
+
+.browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.browser-dots {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+/* --edge for all three rather than traffic lights: mint is the page's one
+   accent, and three coloured dots would outshout every other thing on it. */
+.browser-dots i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--edge);
+}
+
+.browser-url {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--ink-faint);
+  text-transform: none;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Stacked, the window carries its own shape. Beside the copy it takes
+   whatever height the panel ends up with, so the preview can reach the
+   panel's bottom edge instead of stopping at an aspect ratio. */
+.browser-screen {
+  position: relative;
+  aspect-ratio: 16 / 8.6;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+@media (min-width: 900px) {
+  .browser-screen {
+    aspect-ratio: auto;
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+/* The pan is object-position, not a transform. A capture has no more page in
+   it than it has, so the only thing to reveal is what the window is already
+   cropping — and cropping is exactly what object-fit: cover puts outside the
+   element box, where no transform can reach it. Moving the object's position
+   inside the box walks through the crop instead, and it self-scales: whatever
+   the panel's height turns out to be, this pans precisely the hidden part and
+   no further. */
+.browser-shot {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  /* the way back up, quicker than the way down — a 4s return feels stuck */
+  transition: object-position 1.1s var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hshow-preview:hover .browser-shot {
+    object-position: center bottom;
+    transition-duration: 4s;
+    transition-timing-function: cubic-bezier(0.16, 0.62, 0.23, 1);
+  }
+}
+
+/* ---- the copy ---------------------------------------------------- */
+
+/* The right half of the panel. Its only edge is the rule that divides the two
+   columns — no background, no radius, no shadow: it is not a card. */
+/* One rhythm for the whole column: every block is a flex child and the gap
+   is the only thing between any two of them. */
+.hshow-copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+  padding: clamp(24px, 3.4vh, 44px);
+  border-top: 1px solid var(--edge);
+}
+
+@media (min-width: 900px) {
+  .hshow-copy {
+    /* stretched by the grid, so the rule runs the panel's full height */
+    border-top: 0;
+    border-left: 1px solid var(--edge);
+  }
+}
+
+/* Everything real sits above the numeral. */
+.hshow-copy > *:not(.hshow-ghost) {
+  position: relative;
+  z-index: 1;
+}
+
+/* The slide's number at display size, barely there. Absolute, so it adds no
+   height, and hung off the bottom-right corner for the panel to cut. */
+.hshow-ghost {
+  position: absolute;
+  z-index: 0;
+  right: -0.04em;
+  bottom: -0.24em;
+  font-size: clamp(120px, 15vw, 220px);
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.78;
+  color: var(--ink);
+  opacity: 0.05;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---- the button ------------------------------------------------- */
+
+.hshow-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  /* takes up whatever slack the column has, which puts it at the bottom */
+  margin-top: auto;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 11px;
+  text-decoration: none;
+  box-shadow: 0 12px 24px -14px rgba(23, 21, 25, 0.7);
+  transition:
+    transform 0.35s var(--ease),
+    box-shadow 0.35s var(--ease);
+}
+
+.hshow-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 30px -14px rgba(23, 21, 25, 0.6);
+}
+
+/* The label rolls; the arrow does not. One line tall with the overflow
+   clipped, and a track of two items that slides by exactly one item — both
+   measured in em off the same font-size, so they cannot drift apart.
+
+   The track is a flex column, so its width is the wider of the two labels
+   and the button is already that wide before the swap starts. Nothing about
+   the roll changes the button's box. */
+.hshow-roll {
+  display: block;
+  overflow: hidden;
+  height: 1.5em;
+}
+
+.hshow-roll-track {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.4s cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+.hshow-roll-item {
+  height: 1.5em;
+  line-height: 1.5em;
+  white-space: nowrap;
+  text-align: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hshow-cta:hover .hshow-roll-track {
+    transform: translateY(-1.5em);
+  }
+}
+
+/* Static on hover, deliberately: the label rolling behind it is the whole
+   gesture, and a second thing moving at the same time reads as two. */
+.hshow-cta-arrow {
+  font-size: 12px;
+  line-height: 1;
+  flex: none;
+}
+
+.hshow-copyhead {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px 24px;
-  padding-bottom: clamp(18px, 2.4vw, 26px);
+  gap: 8px 20px;
+  width: 100%; /* so the index holds the right edge of the column */
 }
 
-.spec-name {
-  font-size: clamp(30px, 5.4vw, 62px);
+/* Orange to purple, straight off the two blob tokens. */
+.hshow-rule {
+  width: 40px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--peach), var(--lilac));
+  flex: none;
+}
+
+.hshow-tagline {
+  font-size: clamp(14px, 1.2vw, 16px);
+  line-height: 1.4;
+  color: var(--ink-faint);
+}
+
+/* No label above it, so it has to read as the opening line it now is. */
+.hshow-summary {
+  font-size: clamp(14.5px, 1.25vw, 16px);
+  line-height: 1.62;
+  color: var(--ink-dim);
+  max-width: 46ch;
+}
+
+.hshow-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hshow-name {
+  font-size: clamp(26px, 3.4vw, 46px);
   font-weight: 600;
   letter-spacing: -0.036em;
-  line-height: 1.02;
+  line-height: 1.04;
   color: var(--ink);
 }
 
-.spec-index {
+.hshow-namelink {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Both labels sit in one grid cell, hidden, so the box is as wide as the
+   wider of them. The live text is laid over the top out of flow, which is
+   what makes the swap — and the glyph churn on the way there — incapable of
+   moving anything around it. */
+.hshow-name-swap {
+  position: relative;
+  display: inline-grid;
+}
+
+.hshow-name-res {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.hshow-name-text {
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+}
+
+.hshow-index {
   display: flex;
   gap: 8px;
   color: var(--ink-dim);
 }
 
-.spec-rows {
-  margin: 0;
-  border-bottom: 1px solid var(--edge);
+/* ---- the rail, once the script takes it ------------------------- */
+
+.hshow[data-mode="rail"] {
+  /* one viewport of scroll per project: the first is the pin, the rest is
+     the travel */
+  height: calc(var(--slides, 2) * 100vh);
+  height: calc(var(--slides, 2) * 100svh);
 }
 
-.spec-row {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr);
-  gap: 6px 28px;
-  padding-block: clamp(14px, 1.8vw, 19px);
-  border-top: 1px solid var(--edge);
+.hshow[data-mode="rail"] .hshow-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  padding-block: clamp(14px, 2.4vh, 44px);
+  justify-content: center;
+  overflow: hidden;
 }
 
-.spec-label {
-  color: var(--ink-dim);
-  padding-top: 5px;
+.hshow[data-mode="rail"] .hshow-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.spec-value {
-  margin: 0;
-  font-size: clamp(15px, 1.35vw, 17px);
-  line-height: 1.62;
-  color: var(--ink);
-  max-width: 62ch;
+/* The rail is one viewport wide and the slides overflow it, so translating
+   by 100% moves exactly one project — no measuring, and a resize mid-scroll
+   needs no recomputing. */
+.hshow[data-mode="rail"] .hshow-rail {
+  flex-direction: row;
+  gap: 0;
+  height: 100%;
+  width: 100%;
+  will-change: transform;
 }
 
-.specsheet .project-link {
-  margin-top: clamp(22px, 3vw, 30px);
-}
-
-.project-status {
-  display: inline-flex;
+.hshow[data-mode="rail"] .hshow-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
   align-items: center;
-  gap: 7px;
-  color: var(--ink-dim);
 }
 
-.project-status::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--mint);
+/* The stacked entrance. data-enter is set by the script, so with no
+   JavaScript there is no hidden state to get stuck in — and the site's
+   reduced-motion rule (§16) collapses the duration, which is the intent:
+   the projects appear, they just do not travel to get there. */
+.hshow[data-enter]:not([data-mode="rail"]) .hshow-slide {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease);
 }
 
-.project-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  align-self: flex-start;
-  margin-top: 4px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid var(--edge);
-  color: var(--ink);
-  text-decoration: none;
-  transition: border-color 0.3s var(--ease);
+.hshow[data-enter]:not([data-mode="rail"]) .hshow-slide.is-in {
+  opacity: 1;
+  transform: none;
 }
 
-.project-link:hover {
-  border-color: var(--ink);
+/* Stacked, the counter and the bar are measuring nothing — every project is
+   already on the page. */
+.hshow:not([data-mode="rail"]) .hshow-count,
+.hshow:not([data-mode="rail"]) .hshow-bar {
+  display: none;
 }
 
 /* ============================================================
@@ -1018,8 +1737,33 @@ a.contact-value:hover {
    ============================================================ */
 
 @media (max-width: 720px) {
-  .showcase {
-    height: 160vh;
+  /* §5 — no pin and no lid on a phone. The stage goes back into the flow,
+     where a card taller than the viewport can still be scrolled past, and the
+     entrance becomes a fade-up under a light tilt. The pill that rides the
+     lid's edge goes with it: there is no room for it, and the one in the hero
+     already carries those links. */
+  .device {
+    height: auto;
+  }
+
+  .device-stage {
+    position: static;
+    height: auto;
+    padding-block: clamp(72px, 11vw, 140px);
+    perspective: 900px;
+  }
+
+  /* A 16:10 lid is a landscape shape, and a phone is not. Here it takes the
+     column it is given and stands as tall as the copy needs — the frame's
+     stature is a desktop gesture, and holding 84svh of it on a phone would
+     only pad the copy with empty screen. */
+  .device-lid {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .nav-floating {
+    display: none;
   }
 
   .hero {
@@ -1043,15 +1787,6 @@ a.contact-value:hover {
   .timeline-year {
     grid-row: auto;
     grid-column: 1;
-  }
-
-  .spec-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 3px;
-  }
-
-  .spec-label {
-    padding-top: 0;
   }
 
   .contact-row {
@@ -1082,7 +1817,14 @@ a.contact-value:hover {
     transition-duration: 0.001ms !important;
   }
 
-  .btn:hover {
+  .btn:hover,
+  .hshow-cta:hover {
+    transform: none;
+  }
+
+  /* the roll and the preview's pan are both transitions, which the rule
+     above already collapses to nothing */
+  .hshow-cta:hover .hshow-roll-track {
     transform: none;
   }
 }

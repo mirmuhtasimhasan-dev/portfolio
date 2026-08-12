@@ -19,9 +19,13 @@ import "./globals.css";
  * inside Google's 0.1 "good" threshold, and 0 on any warm cache.
  * Switch both to "optional" for a literal 0, at the price above.
  */
+/* 700 is here for the Projects heading, which is drawn into a canvas at the
+   family's heaviest real weight. Instrument Sans stops at 700 — its wght axis
+   is 400–700 — so a heavier request would be synthesised, and synthetic bold
+   rasterised into a texture smears in a way CSS text does not. */
 const sans = Instrument_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });
