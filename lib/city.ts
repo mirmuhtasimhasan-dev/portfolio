@@ -1,6 +1,7 @@
 import { BoxGeometry, Color, EdgesGeometry, Vector3 } from "three";
 import { mulberry32 } from "./random";
 import { palette } from "./palette";
+import { CONTENT_LOTS, FLOOR_HEIGHT, SIDEWALK } from "./contentBuildings";
 import {
   LAKE_CENTER,
   LAKE_RADIUS,
@@ -15,15 +16,12 @@ import {
  * scaled/rotated/translated and appended to one big position buffer, so the
  * whole city is a single LineSegments draw call.
  *
- * Line hierarchy: almost everything is line-base; a small share of buildings
- * (NEON_SHARE) get bright green outlines. Floor lines and rooftop details are
- * flagged as "detail" so the shader can fade them out with distance (moire).
+ * Line hierarchy: every generated building is line-base. Bright green is kept
+ * for the buildings that carry section content (see contentBuildings.ts).
+ * Floor lines and rooftop details are flagged as "detail" so the shader can
+ * fade them out with distance (moire).
  */
 
-const FLOOR_HEIGHT = 3.2;
-/** Facades start at ROAD_HALF_WIDTH + SIDEWALK = 9 m from the road center. */
-export const SIDEWALK = 4;
-const NEON_SHARE = 0.11;
 // Hatirjheel stretch: low buildings only until the bridge arrives (phase 4).
 const HATIRJHEEL = { from: 0.6, to: 0.9, clearance: 60 };
 
@@ -67,7 +65,6 @@ const ringEdges = new Float32Array([
 ]);
 
 const BASE = new Color(palette.lineBase);
-const NEON = new Color(palette.green);
 
 class LineWriter {
   pos: number[] = [];
@@ -137,11 +134,10 @@ function addBuilding(
   x: number, z: number,
   width: number, depth: number, floors: number,
   yaw: number,
-  floorLines: boolean,
-  neon: boolean
+  floorLines: boolean
 ): Footprint {
   const h = floors * FLOOR_HEIGHT;
-  w.add(boxEdges, width, h, depth, yaw, x, 0, z, neon ? NEON : BASE, 0);
+  w.add(boxEdges, width, h, depth, yaw, x, 0, z, BASE, 0);
 
   if (floorLines) {
     for (let f = 1; f < floors; f++) {
@@ -170,6 +166,15 @@ function addBuilding(
   return { x, z, sx: width, sz: depth, yaw, top };
 }
 
+/** Varied Dhaka skyline: mostly 5-10 storeys, some low, some tall, a few towers. */
+function dhakaFloors(rand: () => number) {
+  const r = rand();
+  if (r < 0.15) return 2 + Math.floor(rand() * 3);
+  if (r < 0.8) return 5 + Math.floor(rand() * 6);
+  if (r < 0.94) return 11 + Math.floor(rand() * 5);
+  return 16 + Math.floor(rand() * 11);
+}
+
 export function generateCity(seed = 1971): CityBuffers {
   const rand = mulberry32(seed);
   const w = new LineWriter();
@@ -191,44 +196,60 @@ export function generateCity(seed = 1971): CityBuffers {
       // right vector = tangent x up
       const rx = -t.z;
       const rz = t.x;
-      const off = ROAD_HALF_WIDTH + SIDEWALK + depth / 2 + rand() * 1.5;
+      let off = ROAD_HALF_WIDTH + SIDEWALK + depth / 2 + rand() * 1.5;
+      // On bends a corner can poke past the sidewalk line: push the building back.
+      const yawT = Math.atan2(t.x, t.z);
+      const cy = Math.cos(yawT);
+      const sy = Math.sin(yawT);
+      for (let pass = 0; pass < 2; pass++) {
+        const cx0 = p.x + rx * off * side;
+        const cz0 = p.z + rz * off * side;
+        let closest = Infinity;
+        for (const [lx, lz] of [[-depth / 2, -width / 2], [-depth / 2, width / 2], [depth / 2, -width / 2], [depth / 2, width / 2]]) {
+          closest = Math.min(closest, nearestRoad(samples, cx0 + lx * cy + lz * sy, cz0 - lx * sy + lz * cy).dist);
+        }
+        const deficit = ROAD_HALF_WIDTH + SIDEWALK - closest;
+        if (deficit <= 0) break;
+        off += deficit + 0.2;
+      }
       const x = p.x + rx * off * side;
       const z = p.z + rz * off * side;
 
       if (isReserved(x, z)) continue;
+      // Keep content lots empty (with the building's own half width as margin).
+      const halfA = width / 2 / ROAD_LENGTH;
+      if (
+        CONTENT_LOTS.some(
+          (l) => l.side === side && a + halfA > l.aFrom && a - halfA < l.aTo
+        )
+      )
+        continue;
 
       const low = inHatirjheel({ dist: off, a });
       const floors = low ? 1 + Math.floor(rand() * 3) : 5 + Math.floor(rand() * 6);
       const yaw = Math.atan2(t.x, t.z);
-      const neon = rand() < NEON_SHARE;
       // local Z runs along the road: width along Z, depth along X.
-      footprints.push(addBuilding(w, rand, x, z, depth, width, floors, yaw, true, neon));
+      footprints.push(addBuilding(w, rand, x, z, depth, width, floors, yaw, true));
     }
   }
 
-  // 2. Fill the rest of the city on a jittered grid.
-  const CELL = 17;
+  // 2. Fill the rest of the city: a tight grid with narrow gaps, like Dhaka.
+  const CELL = 12;
   for (let gx = -340; gx <= 380; gx += CELL) {
     for (let gz = 180; gz >= -780; gz -= CELL) {
-      if (rand() < 0.12) continue; // open plots, ponds, playgrounds
-      const x = gx + (rand() - 0.5) * 5;
-      const z = gz + (rand() - 0.5) * 5;
+      if (rand() < 0.05) continue; // the odd open plot or pond
+      const x = gx + (rand() - 0.5) * 1.5;
+      const z = gz + (rand() - 0.5) * 1.5;
       const near = nearestRoad(samples, x, z);
       if (near.dist < ROAD_HALF_WIDTH + SIDEWALK + 28) continue;
       if (isReserved(x, z)) continue;
 
-      const width = 7 + rand() * 7;
-      const depth = 7 + rand() * 7;
-      const low = inHatirjheel(near);
-      const tower = !low && rand() < 0.06;
-      const floors = low
-        ? 1 + Math.floor(rand() * 3)
-        : tower
-          ? 14 + Math.floor(rand() * 10)
-          : 4 + Math.floor(rand() * 8);
-      const yaw = (rand() - 0.5) * 0.2;
-      const neon = rand() < NEON_SHARE;
-      footprints.push(addBuilding(w, rand, x, z, width, depth, floors, yaw, near.dist < 70, neon));
+      // Sizes and jitter keep a 1-5 m gap between neighbours, never overlapping.
+      const width = 7 + rand() * 3;
+      const depth = 7 + rand() * 3;
+      const floors = inHatirjheel(near) ? 1 + Math.floor(rand() * 3) : dhakaFloors(rand);
+      const yaw = (rand() - 0.5) * 0.08;
+      footprints.push(addBuilding(w, rand, x, z, width, depth, floors, yaw, near.dist < 70));
     }
   }
 

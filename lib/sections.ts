@@ -10,3 +10,7 @@ export const SECTIONS = [
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
 export const SECTION_COUNT = SECTIONS.length;
+export const sectionIndex = (id: SectionId) => SECTIONS.findIndex((s) => s.id === id);
+
+/** The tall container that produces master scroll progress. */
+export const TRACK_ID = "scroll-track";

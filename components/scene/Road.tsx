@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo } from "react";
 import { BufferAttribute, BufferGeometry, Vector3 } from "three";
 import { ROAD_HALF_WIDTH, ROAD_LENGTH, roadCurve } from "@/lib/paths";
 import { palette } from "@/lib/palette";
-import { SIDEWALK } from "@/lib/city";
+import { SIDEWALK } from "@/lib/contentBuildings";
 
 const UP = new Vector3(0, 1, 0);
 

@@ -61,6 +61,25 @@ export function progressToStop(progress: number): number {
   return N - 1;
 }
 
+const HOLDS = ZONES.filter((z) => z.kind === "hold");
+
+/**
+ * Where master progress is relative to section i, for timing in-scene effects:
+ * -1..0 during the incoming travel, 0..1 through the hold, 1..2 during the
+ * outgoing travel. Clamped at the ends. Pure function of progress, so
+ * scrolling up reverses every effect exactly.
+ */
+export function sectionPhase(progress: number, i: number): number {
+  const hold = HOLDS[i];
+  if (progress < hold.start) {
+    if (i === 0) return 0;
+    return Math.max(-1, (progress - hold.start) / T);
+  }
+  if (progress <= hold.end) return (progress - hold.start) / H;
+  if (i === N - 1) return 1;
+  return Math.min(2, 1 + (progress - hold.end) / T);
+}
+
 /** Nearest section index for a stop-space value. */
 export const stopToSection = (s: number) => clamp(Math.round(s), 0, N - 1);
 

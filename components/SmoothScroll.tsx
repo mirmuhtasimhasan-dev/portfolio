@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { registerLenis } from "@/lib/scrollNav";
 import { scrollStore } from "@/lib/scrollStore";
 import { progressToStop, stopToSection } from "@/lib/stopMap";
 
@@ -28,6 +29,7 @@ export function SmoothScroll({ trackId, onTick }: Props) {
 
     // Reduced motion keeps native scrolling (no smoothing inertia).
     const lenis = reduced ? null : new Lenis({ lerp: 0.09, smoothWheel: true, wheelMultiplier: 0.9 });
+    registerLenis(lenis);
     const raf = (time: number) => lenis?.raf(time * 1000);
     if (lenis) {
       lenis.on("scroll", ScrollTrigger.update);
@@ -56,6 +58,7 @@ export function SmoothScroll({ trackId, onTick }: Props) {
     return () => {
       gsap.ticker.remove(tick);
       master.kill();
+      registerLenis(null);
       if (lenis) {
         gsap.ticker.remove(raf);
         lenis.destroy();

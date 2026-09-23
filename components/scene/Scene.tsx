@@ -6,6 +6,7 @@ import { palette } from "@/lib/palette";
 import { City } from "./City";
 import { Road } from "./Road";
 import { CameraRig } from "./CameraRig";
+import { ContentBuildings } from "./ContentBuildings";
 import { FOG_DENSITY } from "./fog";
 
 type Props = {
@@ -42,6 +43,7 @@ export default function Scene({ onCut }: Props) {
     <div ref={wrapper} className="absolute inset-0">
       <Canvas
         frameloop={active ? "always" : "never"}
+        flat
         dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         camera={{ fov: 55, near: 2, far: 1400, position: [0, 80, 108] }}
@@ -50,6 +52,7 @@ export default function Scene({ onCut }: Props) {
         <fogExp2 attach="fog" args={[palette.bgNight, FOG_DENSITY]} />
         <City />
         <Road />
+        <ContentBuildings />
         <CameraRig onCut={onCut} />
       </Canvas>
     </div>

@@ -72,8 +72,10 @@ const KEYS: Key[] = [
   // 4 Projects: onto the Hatirjheel stretch.
   { stop: 4, pos: roadFrame(0.62, 0, 6), look: roadFrame(0.72, 0, 6) },
   // Follow the road through the bend instead of cutting the corner.
+  { pos: roadFrame(0.66, 0, 6), look: roadFrame(0.76, 0, 6) },
   { pos: roadFrame(0.7, 0, 6), look: roadFrame(0.8, 0, 6) },
   { pos: roadFrame(0.78, 0, 6), look: roadFrame(0.88, 0, 6) },
+  { pos: roadFrame(0.825, 0, 6), look: roadFrame(0.925, 0, 6.5) },
   { pos: roadFrame(0.87, 0, 6), look: roadFrame(0.97, 0, 7) },
   { pos: roadFrame(0.925, 0, 6), look: roadFrame(1, 0, 9) },
   // 5 Contact: road end, looking across the lake at Sangsad Bhaban.
