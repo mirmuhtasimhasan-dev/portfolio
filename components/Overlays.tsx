@@ -12,7 +12,7 @@ const PLACEHOLDER: Record<SectionId, { title: string; body: string; align: strin
   hero: {
     title: "Hi. I'm Muhtasim.",
     body: "Full-stack developer. Mohammadpur, Dhaka.",
-    align: "items-center justify-center text-center",
+    align: "items-start justify-center text-center pt-[14vh]",
   },
   about: { title: "About", body: "Placeholder: lockdown, boredom, HTML.", align: "items-center justify-start" },
   credentials: {
@@ -23,15 +23,23 @@ const PLACEHOLDER: Record<SectionId, { title: string; body: string; align: strin
   toolset: {
     title: "Toolset",
     body: "Placeholder: the Neon Bazaar.",
-    align: "items-end justify-center text-center pb-24",
+    align: "items-start justify-center text-center pt-[12vh]",
   },
-  projects: { title: "Projects", body: "Placeholder: Hatirjheel billboards.", align: "items-start justify-start pt-32" },
+  projects: {
+    title: "Projects",
+    body: "Placeholder: Hatirjheel billboards.",
+    align: "items-start justify-start pt-[14vh]",
+  },
   contact: {
     title: "Say hello",
     body: "Placeholder: Sangsad Bhaban at dawn.",
-    align: "items-center justify-center text-center",
+    align: "items-start justify-center text-center pt-[12vh]",
   },
 };
+
+// Dark scrim behind each text block so no city lines cross the text.
+const SCRIM =
+  "radial-gradient(closest-side, rgb(10 15 12 / 0.97) 0%, rgb(10 15 12 / 0.95) 68%, rgb(10 15 12 / 0) 100%)";
 
 /**
  * Fixed layer with one panel per section. Opacity and offset are written
@@ -69,7 +77,12 @@ export const Overlays = forwardRef<OverlaysHandle>(function Overlays(_, ref) {
             className={`absolute inset-0 flex px-6 sm:px-16 ${p.align}`}
             style={{ opacity: i === 0 ? 1 : 0, visibility: i === 0 ? "visible" : "hidden" }}
           >
-            <div className="max-w-xl">
+            <div className="relative isolate max-w-xl">
+              <div
+                aria-hidden
+                className="absolute -inset-x-32 -inset-y-24 -z-10"
+                style={{ background: SCRIM }}
+              />
               <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-green">
                 {String(i + 1).padStart(2, "0")} / {sec.label}
               </p>

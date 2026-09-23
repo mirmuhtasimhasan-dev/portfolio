@@ -6,6 +6,7 @@ import { palette } from "@/lib/palette";
 import { City } from "./City";
 import { Road } from "./Road";
 import { CameraRig } from "./CameraRig";
+import { FOG_DENSITY } from "./fog";
 
 type Props = {
   onCut?: (apply: () => void) => void;
@@ -36,16 +37,17 @@ export default function Scene({ onCut }: Props) {
     };
   }, []);
 
+  // near = 2: geometry closer than 2 m to the camera is never drawn.
   return (
     <div ref={wrapper} className="absolute inset-0">
       <Canvas
         frameloop={active ? "always" : "never"}
         dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        camera={{ fov: 55, near: 0.5, far: 1400, position: [0, 150, 150] }}
+        camera={{ fov: 55, near: 2, far: 1400, position: [0, 80, 108] }}
       >
         <color attach="background" args={[palette.bgNight]} />
-        <fog attach="fog" args={[palette.bgNight, 90, 620]} />
+        <fogExp2 attach="fog" args={[palette.bgNight, FOG_DENSITY]} />
         <City />
         <Road />
         <CameraRig onCut={onCut} />

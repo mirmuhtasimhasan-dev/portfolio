@@ -50,29 +50,37 @@ export const SANGSAD_POSITION = roadEnd.clone().addScaledVector(roadEndDir, 160)
  */
 type Key = { pos: Vector3; look: Vector3; stop?: number };
 
+/** Street-level eye height. Street keys sit on the road center line (lateral 0). */
+export const EYE = 3.4;
+
 const KEYS: Key[] = [
-  // 0 Hero: high over the city, looking across the skyline.
-  { stop: 0, pos: new Vector3(-10, 150, 150), look: new Vector3(20, 20, -260) },
-  // Dive toward the street.
-  { pos: new Vector3(-4, 70, 60), look: roadFrame(0.22, 0, 6) },
-  { pos: roadFrame(0.1, 0, 22), look: roadFrame(0.22, 6, 6) },
-  // 1 About: street level, residential building on the right.
-  { stop: 1, pos: roadFrame(0.18, -2.5, 3.2), look: roadFrame(0.205, 15, 8) },
-  { pos: roadFrame(0.245, 0, 3.6), look: roadFrame(0.31, -4, 6) },
-  // 2 Credentials: the next building, on the left.
-  { stop: 2, pos: roadFrame(0.29, 2.5, 3.6), look: roadFrame(0.315, -15, 12) },
-  { pos: roadFrame(0.36, 0, 3.4), look: roadFrame(0.46, 0, 4) },
+  // 0 Hero: above the road start, horizon in the upper half, skyline filling the lower half.
+  { stop: 0, pos: new Vector3(0, 80, 108), look: new Vector3(18, 34, -260) },
+  // Dive down the road corridor.
+  { pos: new Vector3(0, 46, 52), look: roadFrame(0.27, 0, 8) },
+  { pos: roadFrame(0.1, 0, 15), look: roadFrame(0.26, 0, EYE + 1) },
+  // 1 About: road center, residential building ahead on the right.
+  { stop: 1, pos: roadFrame(0.18, 0, EYE), look: roadFrame(0.215, 12, EYE) },
+  { pos: roadFrame(0.245, 0, EYE), look: roadFrame(0.33, 0, EYE) },
+  // 2 Credentials: road center, the next building ahead on the left.
+  { stop: 2, pos: roadFrame(0.29, 0, EYE), look: roadFrame(0.325, -12, EYE) },
+  { pos: roadFrame(0.36, 0, EYE), look: roadFrame(0.46, 0, EYE) },
   // 3 Toolset: looking down the bazaar street.
-  { stop: 3, pos: roadFrame(0.42, 0, 3.2), look: roadFrame(0.5, 0, 5) },
-  { pos: roadFrame(0.53, 0, 4.5), look: roadFrame(0.64, 0, 5) },
+  { stop: 3, pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.5, 0, EYE) },
+  { pos: roadFrame(0.5, 0, EYE + 0.5), look: roadFrame(0.6, 0, EYE + 1) },
+  { pos: roadFrame(0.565, 0, EYE + 1.5), look: roadFrame(0.66, 0, 5) },
   // 4 Projects: onto the Hatirjheel stretch.
   { stop: 4, pos: roadFrame(0.62, 0, 6), look: roadFrame(0.72, 0, 6) },
-  { pos: roadFrame(0.8, 0, 6), look: roadFrame(0.93, 0, 8) },
+  // Follow the road through the bend instead of cutting the corner.
+  { pos: roadFrame(0.7, 0, 6), look: roadFrame(0.8, 0, 6) },
+  { pos: roadFrame(0.78, 0, 6), look: roadFrame(0.88, 0, 6) },
+  { pos: roadFrame(0.87, 0, 6), look: roadFrame(0.97, 0, 7) },
+  { pos: roadFrame(0.925, 0, 6), look: roadFrame(1, 0, 9) },
   // 5 Contact: road end, looking across the lake at Sangsad Bhaban.
   {
     stop: 5,
     pos: roadFrame(0.965, 0, 6),
-    look: SANGSAD_POSITION.clone().setY(22),
+    look: SANGSAD_POSITION.clone().setY(16),
   },
 ];
 

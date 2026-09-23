@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo } from "react";
 import { BufferAttribute, BufferGeometry, Vector3 } from "three";
 import { ROAD_HALF_WIDTH, ROAD_LENGTH, roadCurve } from "@/lib/paths";
 import { palette } from "@/lib/palette";
+import { SIDEWALK } from "@/lib/city";
 
 const UP = new Vector3(0, 1, 0);
 
@@ -48,8 +49,8 @@ export function Road() {
       ]),
       center: toGeometry(dashes(3, 4)),
       curbs: toGeometry([
-        ...offsetPolyline(ROAD_HALF_WIDTH + 3, steps, 0.15),
-        ...offsetPolyline(-ROAD_HALF_WIDTH - 3, steps, 0.15),
+        ...offsetPolyline(ROAD_HALF_WIDTH + SIDEWALK, steps, 0.15),
+        ...offsetPolyline(-ROAD_HALF_WIDTH - SIDEWALK, steps, 0.15),
       ]),
     };
   }, []);

@@ -1,5 +1,6 @@
-import { BoxGeometry, EdgesGeometry, Vector3 } from "three";
+import { BoxGeometry, Color, EdgesGeometry, Vector3 } from "three";
 import { mulberry32 } from "./random";
+import { palette } from "./palette";
 import {
   LAKE_CENTER,
   LAKE_RADIUS,
@@ -13,18 +14,36 @@ import {
  * Code-generated city. Every building is the EdgesGeometry of a unit box,
  * scaled/rotated/translated and appended to one big position buffer, so the
  * whole city is a single LineSegments draw call.
+ *
+ * Line hierarchy: almost everything is line-base; a small share of buildings
+ * (NEON_SHARE) get bright green outlines. Floor lines and rooftop details are
+ * flagged as "detail" so the shader can fade them out with distance (moire).
  */
 
 const FLOOR_HEIGHT = 3.2;
-const SIDEWALK = 3;
-// Hatirjheel stretch: kept open for the bridge and water (phase 4).
-const HATIRJHEEL = { from: 0.6, to: 0.88, clearance: 55 };
+/** Facades start at ROAD_HALF_WIDTH + SIDEWALK = 9 m from the road center. */
+export const SIDEWALK = 4;
+const NEON_SHARE = 0.11;
+// Hatirjheel stretch: low buildings only until the bridge arrives (phase 4).
+const HATIRJHEEL = { from: 0.6, to: 0.9, clearance: 60 };
+
+export type Footprint = {
+  x: number;
+  z: number;
+  /** Size along local X / local Z. */
+  sx: number;
+  sz: number;
+  yaw: number;
+  /** Top including rooftop structures. */
+  top: number;
+};
 
 export type CityBuffers = {
-  /** Building edges, floor lines, rooftop tanks. */
   positions: Float32Array;
-  /** 0..1 per vertex: 1 = street frontage (drawn slightly brighter). */
-  emphasis: Float32Array;
+  colors: Float32Array;
+  /** 1 = floor line / rooftop detail (faded out with distance), 0 = main edge. */
+  detail: Float32Array;
+  footprints: Footprint[];
   buildingCount: number;
 };
 
@@ -47,9 +66,13 @@ const ringEdges = new Float32Array([
   -0.5, 0, 0.5, -0.5, 0, -0.5,
 ]);
 
+const BASE = new Color(palette.lineBase);
+const NEON = new Color(palette.green);
+
 class LineWriter {
   pos: number[] = [];
-  emph: number[] = [];
+  col: number[] = [];
+  det: number[] = [];
 
   /** Append a template scaled by (sx, sy, sz), rotated by yaw, moved to (x, y, z). */
   add(
@@ -57,7 +80,8 @@ class LineWriter {
     sx: number, sy: number, sz: number,
     yaw: number,
     x: number, y: number, z: number,
-    emphasis: number
+    color: Color,
+    detail: number
   ) {
     const c = Math.cos(yaw);
     const s = Math.sin(yaw);
@@ -66,7 +90,8 @@ class LineWriter {
       const ly = tpl[i + 1] * sy;
       const lz = tpl[i + 2] * sz;
       this.pos.push(x + lx * c + lz * s, y + ly, z - lx * s + lz * c);
-      this.emph.push(emphasis);
+      this.col.push(color.r, color.g, color.b);
+      this.det.push(detail);
     }
   }
 }
@@ -97,9 +122,10 @@ function nearestRoad(samples: RoadSample[], x: number, z: number) {
   return { dist: Math.sqrt(best), a };
 }
 
-function isReserved(x: number, z: number, near: { dist: number; a: number }) {
-  if (near.a > HATIRJHEEL.from && near.a < HATIRJHEEL.to && near.dist < HATIRJHEEL.clearance)
-    return true;
+const inHatirjheel = (near: { dist: number; a: number }) =>
+  near.a > HATIRJHEEL.from && near.a < HATIRJHEEL.to && near.dist < HATIRJHEEL.clearance;
+
+function isReserved(x: number, z: number) {
   if (Math.hypot(x - LAKE_CENTER.x, z - LAKE_CENTER.z) < LAKE_RADIUS + 20) return true;
   if (Math.hypot(x - SANGSAD_POSITION.x, z - SANGSAD_POSITION.z) < 80) return true;
   return false;
@@ -111,41 +137,44 @@ function addBuilding(
   x: number, z: number,
   width: number, depth: number, floors: number,
   yaw: number,
-  detail: boolean,
-  emphasis: number
-) {
+  floorLines: boolean,
+  neon: boolean
+): Footprint {
   const h = floors * FLOOR_HEIGHT;
-  w.add(boxEdges, width, h, depth, yaw, x, 0, z, emphasis);
+  w.add(boxEdges, width, h, depth, yaw, x, 0, z, neon ? NEON : BASE, 0);
 
-  if (detail) {
+  if (floorLines) {
     for (let f = 1; f < floors; f++) {
-      w.add(ringEdges, width, 1, depth, yaw, x, f * FLOOR_HEIGHT, z, emphasis);
+      w.add(ringEdges, width, 1, depth, yaw, x, f * FLOOR_HEIGHT, z, BASE, 1);
     }
   }
 
+  let top = h;
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
   // Dhaka rooftops: water tanks and stair rooms.
   if (rand() < 0.55) {
     const tw = 1.6 + rand() * 1.4;
+    const th = 1.4 + rand();
     const ox = (rand() - 0.5) * (width - tw) * 0.8;
     const oz = (rand() - 0.5) * (depth - tw) * 0.8;
-    const c = Math.cos(yaw);
-    const s = Math.sin(yaw);
-    w.add(boxEdges, tw, 1.4 + rand(), tw, yaw, x + ox * c + oz * s, h, z - ox * s + oz * c, emphasis);
+    w.add(boxEdges, tw, th, tw, yaw, x + ox * c + oz * s, h, z - ox * s + oz * c, BASE, 1);
+    top = Math.max(top, h + th);
   }
   if (rand() < 0.35) {
     const sw = 3 + rand() * 2;
     const ox = (rand() - 0.5) * (width - sw) * 0.6;
-    const c = Math.cos(yaw);
-    const s = Math.sin(yaw);
-    w.add(boxEdges, sw, 2.6, sw * 0.8, yaw, x + ox * c, h, z - ox * s, emphasis);
+    w.add(boxEdges, sw, 2.6, sw * 0.8, yaw, x + ox * c, h, z - ox * s, BASE, 1);
+    top = Math.max(top, h + 2.6);
   }
+  return { x, z, sx: width, sz: depth, yaw, top };
 }
 
 export function generateCity(seed = 1971): CityBuffers {
   const rand = mulberry32(seed);
   const w = new LineWriter();
   const samples = buildRoadSamples(700);
-  let count = 0;
+  const footprints: Footprint[] = [];
 
   // 1. Street frontage: packed buildings lining both sides of the road.
   for (const side of [-1, 1]) {
@@ -166,13 +195,14 @@ export function generateCity(seed = 1971): CityBuffers {
       const x = p.x + rx * off * side;
       const z = p.z + rz * off * side;
 
-      if (isReserved(x, z, { dist: off, a })) continue;
+      if (isReserved(x, z)) continue;
 
-      const floors = 5 + Math.floor(rand() * 6);
+      const low = inHatirjheel({ dist: off, a });
+      const floors = low ? 1 + Math.floor(rand() * 3) : 5 + Math.floor(rand() * 6);
       const yaw = Math.atan2(t.x, t.z);
+      const neon = rand() < NEON_SHARE;
       // local Z runs along the road: width along Z, depth along X.
-      addBuilding(w, rand, x, z, depth, width, floors, yaw, true, 1);
-      count++;
+      footprints.push(addBuilding(w, rand, x, z, depth, width, floors, yaw, true, neon));
     }
   }
 
@@ -185,21 +215,28 @@ export function generateCity(seed = 1971): CityBuffers {
       const z = gz + (rand() - 0.5) * 5;
       const near = nearestRoad(samples, x, z);
       if (near.dist < ROAD_HALF_WIDTH + SIDEWALK + 28) continue;
-      if (isReserved(x, z, near)) continue;
+      if (isReserved(x, z)) continue;
 
       const width = 7 + rand() * 7;
       const depth = 7 + rand() * 7;
-      const tower = rand() < 0.06;
-      const floors = tower ? 14 + Math.floor(rand() * 10) : 4 + Math.floor(rand() * 8);
+      const low = inHatirjheel(near);
+      const tower = !low && rand() < 0.06;
+      const floors = low
+        ? 1 + Math.floor(rand() * 3)
+        : tower
+          ? 14 + Math.floor(rand() * 10)
+          : 4 + Math.floor(rand() * 8);
       const yaw = (rand() - 0.5) * 0.2;
-      addBuilding(w, rand, x, z, width, depth, floors, yaw, near.dist < 70, 0);
-      count++;
+      const neon = rand() < NEON_SHARE;
+      footprints.push(addBuilding(w, rand, x, z, width, depth, floors, yaw, near.dist < 70, neon));
     }
   }
 
   return {
     positions: new Float32Array(w.pos),
-    emphasis: new Float32Array(w.emph),
-    buildingCount: count,
+    colors: new Float32Array(w.col),
+    detail: new Float32Array(w.det),
+    footprints,
+    buildingCount: footprints.length,
   };
 }
