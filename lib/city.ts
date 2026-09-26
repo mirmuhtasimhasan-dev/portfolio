@@ -35,12 +35,25 @@ export type Footprint = {
   yaw: number;
   /** Top including rooftop structures. */
   top: number;
+  /** Roof height (without rooftop structures). */
+  roof: number;
+  /** Street frontage only: where it stands along the road. */
+  frontage?: {
+    a: number;
+    side: 1 | -1;
+    /** Distance from the road center to the road-facing facade. */
+    facade: number;
+    /** Half size along the road. */
+    halfWidth: number;
+  };
 };
 
 /** Window slots for the lit-city moment (instanced quads). */
 export type WindowSlots = {
   /** xyz per window, on the facade. */
   offsets: Float32Array;
+  /** Width, height per window. */
+  sizes: Float32Array;
   /** Facade normal angle (atan2(nx, nz)). */
   yaws: Float32Array;
   /** About-phase at which this window switches off. */
@@ -108,39 +121,56 @@ class LineWriter {
   }
 }
 
+/** Window size (m) and layout on a facade. */
+const WIN_W = 1.2;
+const WIN_H = 1.5;
+const WIN_MARGIN = 0.9;
+const WIN_GAP = 1.3;
+
+/*
+ * Lit windows for "lockdown night". Only on the wall that faces the road,
+ * on a regular grid (one row per floor, even columns, same size), flush on
+ * the facade. Not every building has them and not every window is lit.
+ * Switch-off times are shared per building floor (small jitter inside), so
+ * windows go dark in small clusters, not as random single squares.
+ */
 class WindowWriter {
   off: number[] = [];
+  size: number[] = [];
   yaw: number[] = [];
   offAt: number[] = [];
   seed: number[] = [];
   constructor(private rand: () => number, private offFrom: number, private offTo: number) {}
 
-  /** Windows on all four faces of a box (local X size sx, Z size sz), kept with probability p. */
-  addBox(x: number, z: number, sx: number, sz: number, floors: number, yaw: number, p: number) {
+  /**
+   * One facade of a box (local X size sx, Z size sz, rotated by yaw).
+   * (nx, nz) is the local face normal: (+-1, 0) or (0, +-1).
+   */
+  addFacade(
+    x: number, z: number, sx: number, sz: number, yaw: number, floors: number,
+    nx: number, nz: number, litP: number
+  ) {
+    const r = this.rand;
     const c = Math.cos(yaw);
     const s = Math.sin(yaw);
-    const faces: [number, number, number][] = [
-      // normal x, normal z, span along the face
-      [1, 0, sz],
-      [-1, 0, sz],
-      [0, 1, sx],
-      [0, -1, sx],
-    ];
-    for (const [nx, nz, span] of faces) {
-      const cols = Math.max(1, Math.floor(span / 3.4));
-      const wyaw = Math.atan2(nx * c + nz * s, -nx * s + nz * c);
-      for (let f = 1; f < floors; f++) {
-        for (let k = 0; k < cols; k++) {
-          if (this.rand() > p) continue;
-          const t = -span / 2 + (span / cols) * (k + 0.5);
-          // Local point on the face, 5 cm out.
-          const lx = nx !== 0 ? nx * (sx / 2 + 0.05) : t;
-          const lz = nz !== 0 ? nz * (sz / 2 + 0.05) : t;
-          this.off.push(x + lx * c + lz * s, f * FLOOR_HEIGHT + 1.6, z - lx * s + lz * c);
-          this.yaw.push(wyaw);
-          this.offAt.push(this.offFrom + (this.offTo - this.offFrom) * this.rand());
-          this.seed.push(this.rand());
-        }
+    const span = nx !== 0 ? sz : sx;
+    const usable = span - 2 * WIN_MARGIN;
+    const cols = Math.max(1, Math.floor((usable + WIN_GAP) / (WIN_W + WIN_GAP)));
+    const step = usable / cols;
+    const wyaw = Math.atan2(nx * c + nz * s, -nx * s + nz * c);
+    for (let f = 1; f < floors; f++) {
+      // One switch-off moment per floor of this building, a little jitter inside.
+      const floorOff = this.offFrom + (this.offTo - this.offFrom - 0.02) * r();
+      for (let k = 0; k < cols; k++) {
+        if (r() > litP) continue;
+        const t = -span / 2 + WIN_MARGIN + step * (k + 0.5);
+        const lx = nx !== 0 ? nx * (sx / 2 + 0.04) : t;
+        const lz = nz !== 0 ? nz * (sz / 2 + 0.04) : t;
+        this.off.push(x + lx * c + lz * s, f * FLOOR_HEIGHT + 0.8 + WIN_H / 2, z - lx * s + lz * c);
+        this.size.push(WIN_W, WIN_H);
+        this.yaw.push(wyaw);
+        this.offAt.push(floorOff + r() * 0.02);
+        this.seed.push(r());
       }
     }
   }
@@ -148,12 +178,29 @@ class WindowWriter {
   build(): WindowSlots {
     return {
       offsets: new Float32Array(this.off),
+      sizes: new Float32Array(this.size),
       yaws: new Float32Array(this.yaw),
       offAt: new Float32Array(this.offAt),
       seeds: new Float32Array(this.seed),
       count: this.yaw.length,
     };
   }
+}
+
+/** Local face normal of a box (yawed) that points most toward direction (dx, dz). */
+function faceToward(yaw: number, dx: number, dz: number): [number, number] {
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  let best: [number, number] = [1, 0];
+  let bestDot = -Infinity;
+  for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
+    const d = (nx * c + nz * s) * dx + (-nx * s + nz * c) * dz;
+    if (d > bestDot) {
+      bestDot = d;
+      best = [nx, nz];
+    }
+  }
+  return best;
 }
 
 type RoadSample = { p: Vector3; a: number };
@@ -226,7 +273,7 @@ function addBuilding(
     w.add(boxEdges, sw, 2.6, sw * 0.8, yaw, x + ox * c, h, z - ox * s, BASE, 1);
     top = Math.max(top, h + 2.6);
   }
-  return { x, z, sx: width, sz: depth, yaw, top };
+  return { x, z, sx: width, sz: depth, yaw, top, roof: h };
 }
 
 /** Varied Dhaka skyline: mostly 5-10 storeys, some low, some tall, a few towers. */
@@ -238,15 +285,16 @@ function dhakaFloors(rand: () => number) {
   return 16 + Math.floor(rand() * 11);
 }
 
-// Share of window slots that are lit: dense along the street, sparser inside
-// the city (distance and fog make it read as "most windows" anyway).
-const WINDOW_P_FRONTAGE = 0.55;
-const WINDOW_P_GRID = 0.16;
+// Which buildings get lit windows, and how many of their window slots are lit.
+const WINDOW_BUILDING_P_FRONTAGE = 0.8;
+const WINDOW_BUILDING_P_GRID = 0.55;
+const WINDOW_LIT_P = 0.55;
 
 export function generateCity(seed = 1971): CityBuffers {
   const rand = mulberry32(seed);
   // Separate stream so windows never change the building layout.
-  const win = new WindowWriter(mulberry32(seed + 1), ABOUT_TIMING.offFrom, ABOUT_TIMING.offTo);
+  const winRand = mulberry32(seed + 1);
+  const win = new WindowWriter(winRand, ABOUT_TIMING.offFrom, ABOUT_TIMING.offTo);
   const w = new LineWriter();
   const samples = buildRoadSamples(700);
   const footprints: Footprint[] = [];
@@ -299,8 +347,13 @@ export function generateCity(seed = 1971): CityBuffers {
       const floors = low ? 1 + Math.floor(rand() * 3) : 5 + Math.floor(rand() * 6);
       const yaw = Math.atan2(t.x, t.z);
       // local Z runs along the road: width along Z, depth along X.
-      footprints.push(addBuilding(w, rand, x, z, depth, width, floors, yaw, true));
-      win.addBox(x, z, depth, width, floors, yaw, WINDOW_P_FRONTAGE);
+      const fp = addBuilding(w, rand, x, z, depth, width, floors, yaw, true);
+      fp.frontage = { a, side: side as 1 | -1, facade: off - depth / 2, halfWidth: width / 2 };
+      footprints.push(fp);
+      // Road-facing wall: local +X * side points at the road.
+      if (winRand() < WINDOW_BUILDING_P_FRONTAGE) {
+        win.addFacade(x, z, depth, width, yaw, floors, side, 0, WINDOW_LIT_P);
+      }
     }
   }
 
@@ -321,7 +374,11 @@ export function generateCity(seed = 1971): CityBuffers {
       const floors = inHatirjheel(near) ? 1 + Math.floor(rand() * 3) : dhakaFloors(rand);
       const yaw = (rand() - 0.5) * 0.08;
       footprints.push(addBuilding(w, rand, x, z, width, depth, floors, yaw, near.dist < 70));
-      win.addBox(x, z, width, depth, floors, yaw, WINDOW_P_GRID);
+      if (winRand() < WINDOW_BUILDING_P_GRID) {
+        const rp = roadCurve.getPointAt(near.a);
+        const [nx, nz] = faceToward(yaw, rp.x - x, rp.z - z);
+        win.addFacade(x, z, width, depth, yaw, floors, nx, nz, WINDOW_LIT_P);
+      }
     }
   }
 

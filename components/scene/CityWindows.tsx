@@ -28,22 +28,32 @@ import { FOG_DENSITY } from "./fog";
 
 const vertexShader = /* glsl */ `
   attribute vec3 aOffset;
+  attribute vec2 aSize;
   attribute float aYaw;
   attribute float aOffAt;
   attribute float aSeed;
+  attribute float aKeepNear;
   uniform float uLit;
   uniform float uPhase;
   varying float vOn;
   varying float vDist;
   varying float vSeed;
   void main() {
+    // Distance of the window center: far windows shrink toward dots,
+    // near ones fade out so nothing turns into a big square by the camera.
+    vec4 center = modelViewMatrix * vec4(aOffset, 1.0);
+    float d = length(center.xyz);
+    float shrink = mix(1.0, 0.4, smoothstep(40.0, 240.0, d));
+    float nearFade = max(aKeepNear, smoothstep(16.0, 30.0, d));
+
     float c = cos(aYaw);
     float s = sin(aYaw);
-    // Plane faces +Z; rotate it to face the facade normal.
-    vec3 p = vec3(position.x * c, position.y, -position.x * s);
+    // Unit plane faces +Z; size it, then turn it to face the facade normal.
+    vec2 q = position.xy * aSize * shrink;
+    vec3 p = vec3(q.x * c, q.y, -q.x * s);
     vec4 mv = modelViewMatrix * vec4(aOffset + p, 1.0);
-    vOn = uLit * (1.0 - smoothstep(aOffAt, aOffAt + 0.012, uPhase));
-    vDist = length(mv.xyz);
+    vOn = uLit * nearFade * (1.0 - smoothstep(aOffAt, aOffAt + 0.012, uPhase));
+    vDist = d;
     vSeed = aSeed;
     gl_Position = projectionMatrix * mv;
   }
@@ -57,9 +67,11 @@ const fragmentShader = /* glsl */ `
   varying float vSeed;
   void main() {
     float fd = uFogDensity * vDist;
-    float k = vOn * exp(-fd * fd) * (0.45 + 0.4 * vSeed);
+    // Lower brightness, with a slight per-window warm/cool tint.
+    float k = vOn * exp(-fd * fd) * (0.28 + 0.24 * vSeed);
     if (k < 0.003) discard;
-    gl_FragColor = vec4(uColor * k, 1.0);
+    vec3 tint = vec3(1.0, 0.94 + 0.08 * vSeed, 0.82 + 0.2 * vSeed);
+    gl_FragColor = vec4(uColor * tint * k, 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -73,31 +85,44 @@ export function CityWindows() {
     const n = city.count + house.length;
 
     const offsets = new Float32Array(n * 3);
+    const sizes = new Float32Array(n * 2);
+    const keepNear = new Float32Array(n);
     const yaws = new Float32Array(n);
     const offAt = new Float32Array(n);
     const seeds = new Float32Array(n);
     offsets.set(city.offsets);
+    sizes.set(city.sizes);
     yaws.set(city.yaws);
     offAt.set(city.offAt);
     seeds.set(city.seeds);
 
-    // The About house's own windows go off too, spread over the same range.
+    // The About house's own windows go off too, floor by floor, and stay
+    // visible up close (the camera is meant to be near this house).
     const rand = mulberry32(7);
+    const floorOff = new Map<number, number>();
     house.forEach((w, i) => {
       const j = city.count + i;
+      if (!floorOff.has(w.floor)) {
+        floorOff.set(w.floor, ABOUT_TIMING.offFrom + (ABOUT_TIMING.offTo - ABOUT_TIMING.offFrom - 0.02) * rand());
+      }
       offsets[j * 3] = w.position.x;
       offsets[j * 3 + 1] = w.position.y;
       offsets[j * 3 + 2] = w.position.z;
+      sizes[j * 2] = w.width;
+      sizes[j * 2 + 1] = w.height;
+      keepNear[j] = 1;
       yaws[j] = w.yaw;
-      offAt[j] = ABOUT_TIMING.offFrom + (ABOUT_TIMING.offTo - ABOUT_TIMING.offFrom) * rand();
+      offAt[j] = floorOff.get(w.floor)! + rand() * 0.02;
       seeds[j] = 0.6 + 0.4 * rand();
     });
 
-    const plane = new PlaneGeometry(1.2, 1.3);
+    const plane = new PlaneGeometry(1, 1);
     const g = new InstancedBufferGeometry();
     g.index = plane.index;
     g.setAttribute("position", plane.getAttribute("position"));
     g.setAttribute("aOffset", new InstancedBufferAttribute(offsets, 3));
+    g.setAttribute("aSize", new InstancedBufferAttribute(sizes, 2));
+    g.setAttribute("aKeepNear", new InstancedBufferAttribute(keepNear, 1));
     g.setAttribute("aYaw", new InstancedBufferAttribute(yaws, 1));
     g.setAttribute("aOffAt", new InstancedBufferAttribute(offAt, 1));
     g.setAttribute("aSeed", new InstancedBufferAttribute(seeds, 1));

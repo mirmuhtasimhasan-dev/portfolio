@@ -63,7 +63,7 @@ function cylinder(arr: Seg, cx: number, y0: number, cz: number, r: number, h: nu
   }
 }
 
-export type HouseWindow = { position: Vector3; yaw: number };
+export type HouseWindow = { position: Vector3; yaw: number; width: number; height: number; floor: number };
 
 export function buildDhakaHouse() {
   const lot = ABOUT_LOT;
@@ -78,7 +78,7 @@ export function buildDhakaHouse() {
 
   const outline: Seg = [];
   const detail: Seg = [];
-  const windows: Vector3[] = [];
+  const windows: { p: Vector3; w: number; h: number; floor: number }[] = [];
 
   // Main volume and roof parapet.
   box(outline, 0, 0, 0, lot.depth, H, lot.width);
@@ -115,7 +115,7 @@ export function buildDhakaHouse() {
       const y1 = w.y + ABOUT_WINDOW.height / 2;
       facadeRect(detail, fx + o * 0.02, y0, y1, w.z - ABOUT_WINDOW.width / 2, w.z + ABOUT_WINDOW.width / 2);
       facadeRect(detail, gx, y0, y1, w.z - ABOUT_WINDOW.width / 2, w.z + ABOUT_WINDOW.width / 2, 4, true);
-      windows.push(w);
+      windows.push({ p: w, w: ABOUT_WINDOW.width, h: ABOUT_WINDOW.height, floor: f });
     }
     // Middle column: balcony with a grill railing and a door behind it.
     const zc = colZ(1);
@@ -134,7 +134,7 @@ export function buildDhakaHouse() {
       push(detail, [fx + o * d, y + 0.05, z1], [fx + o * d, y + 1.05, z1]);
     }
     facadeRect(detail, fx + o * 0.02, y + 0.05, y + 2.3, zc - 0.55, zc + 0.55);
-    windows.push(new Vector3(fx, y + 1.2, zc));
+    windows.push({ p: new Vector3(fx, y + 0.05 + 1.125, zc), w: 1.1, h: 2.25, floor: f });
   }
 
   // Roof: stair room at the back corner, water tanks on a stand.
@@ -150,10 +150,13 @@ export function buildDhakaHouse() {
   const s = Math.sin(lot.yaw);
   const yaw = Math.atan2(o * c, -o * s);
   const worldWindows: HouseWindow[] = windows
-    .filter((w) => w.distanceTo(special) > 0.01)
+    .filter((w) => w.p.distanceTo(special) > 0.01)
     .map((w) => ({
-      position: lotToWorld(lot, new Vector3(w.x + o * 0.04, w.y, w.z)),
+      position: lotToWorld(lot, new Vector3(w.p.x + o * 0.04, w.p.y, w.p.z)),
       yaw,
+      width: w.w,
+      height: w.h,
+      floor: w.floor,
     }));
 
   return {

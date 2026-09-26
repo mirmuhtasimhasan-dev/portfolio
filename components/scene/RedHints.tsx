@@ -62,9 +62,9 @@ const LANE = -2.6;
 const LIGHT_GAP = 0.75;
 const LIGHT_Y = 0.9;
 const TRAIL = 7;
-// Lights closer than NEAR_FADE_FROM to the camera fade out completely by NEAR_FADE_TO.
-const NEAR_FADE_TO = 10;
-const NEAR_FADE_FROM = 28;
+// Lights fade out completely before they get large near the camera.
+const NEAR_FADE_TO = 26;
+const NEAR_FADE_FROM = 48;
 
 function TailLights() {
   const lines = useRef<LineSegments>(null);
@@ -158,7 +158,7 @@ function TailLights() {
         <pointsMaterial
           vertexColors
           map={dot}
-          size={0.9}
+          size={0.55}
           sizeAttenuation
           transparent
           blending={AdditiveBlending}
@@ -177,6 +177,8 @@ const SIGNAL_A = 0.47;
 const POLE_LAT = -8.2;
 const ARM_LAT = -4.4;
 const POLE_H = 5.8;
+const SIGNAL_HIDE_NEAR = 30;
+const SIGNAL_SHOW_FAR = 55;
 
 function TrafficSignal() {
   const glow = useRef<SpriteMaterial>(null);
@@ -219,8 +221,10 @@ function TrafficSignal() {
 
   const sprites = useRef<(Sprite | null)[]>([]);
 
-  useFrame(({ clock }) => {
-    const gate = redGate(scrollStore.progress);
+  useFrame(({ clock, camera }) => {
+    // Small, and gone when the camera is close: never a big pink blur over text.
+    const near = smoothstep(SIGNAL_HIDE_NEAR, SIGNAL_SHOW_FAR, camera.position.distanceTo(lamp));
+    const gate = redGate(scrollStore.progress) * near;
     // Blink about once a second with soft edges.
     const s = Math.sin(clock.elapsedTime * Math.PI * 1.5);
     const on = gate * Math.min(1, Math.max(0, (s + 0.15) / 0.3));
@@ -239,7 +243,7 @@ function TrafficSignal() {
           sprites.current[0] = sp;
         }}
         position={lamp}
-        scale={2.4}
+        scale={1.1}
       >
         <spriteMaterial
           ref={glow}
@@ -257,7 +261,7 @@ function TrafficSignal() {
           sprites.current[1] = sp;
         }}
         position={lamp}
-        scale={0.45}
+        scale={0.28}
       >
         <spriteMaterial
           ref={core}
