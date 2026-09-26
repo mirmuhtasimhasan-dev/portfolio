@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { palette } from "@/lib/palette";
 import { City } from "./City";
@@ -9,6 +9,7 @@ import { CameraRig } from "./CameraRig";
 import { ContentBuildings } from "./ContentBuildings";
 import { CityWindows } from "./CityWindows";
 import { RedHints } from "./RedHints";
+import { NeonBazaar } from "./NeonBazaar";
 import { FOG_DENSITY } from "./fog";
 
 type Props = {
@@ -57,6 +58,10 @@ export default function Scene({ onCut }: Props) {
         <ContentBuildings />
         <CityWindows />
         <RedHints />
+        {/* Sign text loads its font; the rest of the scene never waits for it. */}
+        <Suspense fallback={null}>
+          <NeonBazaar />
+        </Suspense>
         <CameraRig onCut={onCut} />
       </Canvas>
     </div>

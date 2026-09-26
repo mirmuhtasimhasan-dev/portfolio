@@ -5,6 +5,7 @@ import { PERSON } from "@/lib/content";
 import { scrollNav } from "@/lib/navItems";
 import { scrollToSection } from "@/lib/scrollNav";
 import { scrollStore } from "@/lib/scrollStore";
+import { SoundToggle } from "./SoundToggle";
 
 /** Minimal top nav. Each link scrolls (via Lenis) to that section's camera stop. */
 export function Nav() {
@@ -64,6 +65,9 @@ export function Nav() {
               </a>
             </li>
           ))}
+          <li>
+            <SoundToggle />
+          </li>
         </ul>
       </nav>
     </header>

@@ -172,10 +172,10 @@ function TailLights() {
 
 /* ---------------- Traffic signal ---------------- */
 
-// On the left sidewalk just before the bend into the bazaar street.
-const SIGNAL_A = 0.47;
-const POLE_LAT = -8.2;
-const ARM_LAT = -4.4;
+// On the right sidewalk at the bend after the bazaar, clear of its signs.
+const SIGNAL_A = 0.53;
+const POLE_LAT = 9.2;
+const ARM_LAT = 4.6;
 const POLE_H = 5.8;
 const SIGNAL_HIDE_NEAR = 30;
 const SIGNAL_SHOW_FAR = 55;

@@ -23,6 +23,8 @@ import {
  * fade them out with distance (moire).
  */
 
+// The Neon Bazaar street (Toolset): low shop-houses, so rooftop signs stay in view.
+export const BAZAAR_STRETCH = { from: 0.43, to: 0.565 };
 // Hatirjheel stretch: low buildings only until the bridge arrives (phase 4).
 const HATIRJHEEL = { from: 0.6, to: 0.9, clearance: 60 };
 
@@ -344,7 +346,10 @@ export function generateCity(seed = 1971): CityBuffers {
         continue;
 
       const low = inHatirjheel({ dist: off, a });
-      const floors = low ? 1 + Math.floor(rand() * 3) : 5 + Math.floor(rand() * 6);
+      const bazaar = a > BAZAAR_STRETCH.from && a < BAZAAR_STRETCH.to;
+      // Same single rand() call either way, so the layout never shifts.
+      const r = rand();
+      const floors = low ? 1 + Math.floor(r * 3) : bazaar ? 3 + Math.floor(r * 3) : 5 + Math.floor(r * 6);
       const yaw = Math.atan2(t.x, t.z);
       // local Z runs along the road: width along Z, depth along X.
       const fp = addBuilding(w, rand, x, z, depth, width, floors, yaw, true);

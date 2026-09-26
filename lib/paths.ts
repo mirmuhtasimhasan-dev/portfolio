@@ -66,7 +66,8 @@ const KEYS: Key[] = [
   { stop: 2, pos: roadFrame(0.29, 0, EYE), look: roadFrame(0.325, -12, EYE) },
   { pos: roadFrame(0.36, 0, EYE), look: roadFrame(0.46, 0, EYE) },
   // 3 Toolset: looking down the bazaar street.
-  { stop: 3, pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.5, 0, EYE) },
+  // Look slightly up so the rooftop boards of the Server roof stay in frame.
+  { stop: 3, pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.5, 0, EYE + 3) },
   { pos: roadFrame(0.5, 0, EYE + 0.5), look: roadFrame(0.6, 0, EYE + 1) },
   { pos: roadFrame(0.565, 0, EYE + 1.5), look: roadFrame(0.66, 0, 5) },
   // 4 Projects: onto the Hatirjheel stretch.

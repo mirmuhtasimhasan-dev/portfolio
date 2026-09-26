@@ -85,3 +85,27 @@ export function horizonGlow(progress: number) {
   const g = clamp01((s - 0.5) / 4.5);
   return redGate(progress) * (0.1 + 0.5 * g * g);
 }
+
+/* ---------- Toolset: Neon Bazaar ---------- */
+
+const TOOLSET = sectionIndex("toolset");
+export const toolsetPhase = (progress: number) => sectionPhase(progress, TOOLSET);
+
+/** Brightness per tool level (lit), and the dim "off" tube. */
+export const SIGN_DIM = 0.1;
+export const SIGN_LEVEL = [0.5, 0.75, 1] as const;
+
+/**
+ * Tube-light start: alternating on/off durations (seconds), 2 or 3 flickers,
+ * then steady. Deterministic per sign.
+ */
+export function flickerPattern(seed: number): number[] {
+  const r = (k: number) => {
+    const x = Math.sin(seed * 12.9898 + k * 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const flickers = 2 + Math.round(r(0));
+  const out: number[] = [];
+  for (let i = 0; i < flickers; i++) out.push(0.04 + 0.05 * r(i + 1), 0.06 + 0.12 * r(i + 11));
+  return out;
+}

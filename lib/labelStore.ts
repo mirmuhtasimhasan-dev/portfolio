@@ -10,3 +10,10 @@ export const aboutScreenEls: { root: HTMLDivElement | null; code: HTMLSpanElemen
   root: null,
   code: null,
 };
+
+/** "Used in" tooltip for the hovered or selected Neon Bazaar sign. */
+export const toolTipEls: { root: HTMLDivElement | null; name: HTMLParagraphElement | null; used: HTMLParagraphElement | null } = {
+  root: null,
+  name: null,
+  used: null,
+};

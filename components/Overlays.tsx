@@ -25,7 +25,11 @@ function Eyebrow({ index, label }: { index: number; label: string }) {
 function Scrimmed({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div className={`relative isolate ${className}`}>
-      <div aria-hidden className="absolute -inset-x-32 -inset-y-24 -z-10" style={{ background: SCRIM }} />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-x-32 -inset-y-24 -z-10"
+        style={{ background: SCRIM }}
+      />
       {children}
     </div>
   );
@@ -64,7 +68,7 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
             rel="noopener"
             className="mt-8 inline-flex items-center gap-2 rounded-full bg-green px-6 py-3 text-sm font-semibold text-bg-night transition-colors hover:bg-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green"
           >
-            Résumé
+            Resume
             <span aria-hidden>↓</span>
           </a>
         </Scrimmed>
@@ -99,8 +103,13 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
       return (
         <Scrimmed className="max-w-xl">
           <Eyebrow index={index} label="Toolset" />
-          <h2 className="text-4xl font-semibold tracking-tight text-text sm:text-6xl">Toolset</h2>
-          <p className="mt-4 text-base text-text-2 sm:text-lg">Placeholder: the Neon Bazaar.</p>
+          <h2 className="text-3xl font-semibold tracking-tight text-text sm:text-5xl">The Neon Bazaar</h2>
+          <p className="mt-4 text-base text-text-2">
+            Hover a sign to see where I used it. Click it to send it down the cable.
+          </p>
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-text-2/80">
+            Frontend street · Backend gali · Server roof
+          </p>
         </Scrimmed>
       );
     case "projects":
@@ -139,7 +148,9 @@ export const Overlays = forwardRef<OverlaysHandle>(function Overlays(_, ref) {
         el.style.opacity = o.toFixed(3);
         el.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0)`;
         el.style.visibility = o < 0.002 ? "hidden" : "visible";
-        el.style.pointerEvents = o > 0.6 ? "auto" : "none";
+        el.style.pointerEvents = "none";
+        const content = el.firstElementChild as HTMLElement | null;
+        if (content) content.style.pointerEvents = o > 0.6 ? "auto" : "none";
       });
     },
   }));

@@ -9,7 +9,8 @@ import { DebugOverlay } from "./DebugOverlay";
 import { Nav } from "./Nav";
 import { CredentialLabels } from "./CredentialLabels";
 import { AboutScreen } from "./AboutScreen";
-import { TRACK_ID } from "@/lib/sections";
+import { TRACK_ID, TRACK_VH } from "@/lib/sections";
+import { ToolTooltip } from "./ToolTooltip";
 import { HOLDS } from "@/lib/stopMap";
 
 // Text first; the WebGL canvas loads after, client only.
@@ -44,12 +45,15 @@ export function Experience() {
       </div>
       <CredentialLabels />
       <AboutScreen />
+      <ToolTooltip />
       <Overlays ref={overlays} />
       <div ref={fade} className="pointer-events-none fixed inset-0 z-20 bg-bg-night opacity-0" />
       {/* The tall container that produces the master scroll progress. */}
       <div
         id={TRACK_ID}
-        className="relative h-[900vh]"
+        // Pointer events pass through to the canvas (signs are clickable).
+        className="pointer-events-none relative"
+        style={{ height: `${TRACK_VH}vh` }}
         aria-hidden
         data-holds={HOLDS.map((h) => `${h.start.toFixed(5)}-${h.end.toFixed(5)}`).join(",")}
       />
