@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Bloom, EffectComposer } from "@react-three/postprocessing";
+import { EffectComposer, Selection, SelectiveBloom } from "@react-three/postprocessing";
 import { getQuality } from "@/lib/quality";
 import { Rain } from "./Rain";
 import { RoadSheen } from "./WetRoad";
@@ -58,6 +58,7 @@ export default function Scene({ onCut }: Props) {
         gl={{ antialias: true, powerPreference: "high-performance" }}
         camera={{ fov: 55, near: 2, far: 1400, position: [0, 80, 108] }}
       >
+        <Selection>
         <color attach="background" args={[palette.bgNight]} />
         <fogExp2 attach="fog" args={[palette.bgNight, FOG_DENSITY]} />
         <City />
@@ -76,10 +77,21 @@ export default function Scene({ onCut }: Props) {
         {quality.bloom && (
           // Only bright things cross the threshold: neon, lamps, lit windows,
           // screenshots. Line-base building edges stay dim and unbloomed.
+          // Inverted selective bloom: everything blooms as before except the
+          // objects wrapped in <Select> (sign logos and names), which get a
+          // thin hand-drawn halo instead.
           <EffectComposer multisampling={4}>
-            <Bloom mipmapBlur luminanceThreshold={0.34} luminanceSmoothing={0.18} intensity={0.85} radius={0.62} />
+            <SelectiveBloom
+              inverted
+              mipmapBlur
+              luminanceThreshold={0.34}
+              luminanceSmoothing={0.18}
+              intensity={0.85}
+              radius={0.62}
+            />
           </EffectComposer>
         )}
+        </Selection>
       </Canvas>
     </div>
   );

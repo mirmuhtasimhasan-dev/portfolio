@@ -3,6 +3,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Line, Text } from "@react-three/drei";
+import { Select } from "@react-three/postprocessing";
 import {
   AdditiveBlending,
   BufferAttribute,
@@ -41,6 +42,8 @@ import { featuredUsing, usedIn } from "@/lib/toolUsage";
 
 const FONT = "/fonts/geist-mono-600.woff";
 const GREEN = new Color(palette.green);
+/** Tube core: close to white, a touch of green. */
+const CORE = new Color(palette.green).lerp(new Color("#ffffff"), 0.72);
 const BASE = new Color(palette.lineBase);
 
 type TroikaText = Mesh & { fillOpacity: number };
@@ -83,6 +86,7 @@ const rectPoints = (w: number, h: number): [number, number, number][] => [
 function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
   const { tool, width: w, height: h, layout } = spec;
   const tube = useRef<FatLine>(null);
+  const core = useRef<FatLine>(null);
   const reflection = useRef<MeshBasicMaterial>(null);
   const glow = useRef<FatLine>(null);
   const text = useRef<TroikaText>(null);
@@ -102,7 +106,7 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
   // Logo placement inside the board, in board units.
   const logo = useMemo(() => {
     const raw = logoSegments(tool.logo);
-    const size = layout === "row" ? h * 0.66 : w * 0.7;
+    const size = layout === "row" ? h * 0.78 : w * 0.74;
     const cx = layout === "row" ? -w / 2 + h * 0.5 : 0;
     const cy = layout === "row" ? 0 : h / 2 - w * 0.55;
     const pts: [number, number, number][] = [];
@@ -162,7 +166,10 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     const k = hovered || selected ? 1 : rest + (1 - rest) * focus;
     const b = (SIGN_DIM + (lit - SIGN_DIM) * s.x) * k;
     const tm = tube.current?.material;
-    if (tm) tm.opacity = b;
+    if (tm) tm.opacity = b * 0.75;
+    // Bright white-green core: only once the tube is lit.
+    const cm = core.current?.material;
+    if (cm) cm.opacity = s.x * lit * k;
     // The wet road below mirrors the sign, following its flicker and dimming.
     // Near the camera a mirrored board would read as a slab: fade it out there.
     if (reflection.current) {
@@ -170,7 +177,7 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
       reflection.current.opacity = 0.06 * b * s.x * far;
     }
     const gm = glow.current?.material;
-    if (gm) gm.opacity = (0.22 * s.x * lit + (hovered ? 0.12 : 0)) * k;
+    if (gm) gm.opacity = (0.14 * s.x * lit + (hovered ? 0.1 : 0)) * k;
     const fm = frame.current?.material;
     if (fm) {
       fm.color.copy(BASE).lerp(GREEN, selected ? 0.9 : hovered ? 0.6 : 0.25 * s.x);
@@ -200,7 +207,7 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
   // Row: from just right of the icon to the right edge. Column: from the
   // bottom edge up to just below the icon (text runs bottom to top).
   const PAD = 0.14;
-  const iconEnd = layout === "row" ? -w / 2 + h * 0.5 + h * 0.33 : h / 2 - w * 0.55 - w * 0.35;
+  const iconEnd = layout === "row" ? -w / 2 + h * 0.5 + h * 0.39 : h / 2 - w * 0.55 - w * 0.37;
   const room = layout === "row" ? w / 2 - PAD - (iconEnd + PAD) : iconEnd - PAD - (-h / 2 + PAD);
   const textProps =
     layout === "row"
@@ -240,30 +247,36 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
           <meshBasicMaterial color={palette.bgNight} transparent opacity={0.92} fog />
         </mesh>
         <Line ref={frame} points={rectPoints(w, h)} segments lineWidth={1.2} color={palette.lineBase} transparent />
-        <Line
-          ref={glow}
-          points={logo}
-          segments
-          lineWidth={6}
-          color={palette.green}
-          transparent
-          opacity={0}
-          depthWrite={false}
-          blending={AdditiveBlending}
-        />
-        <Line ref={tube} points={logo} segments lineWidth={1.6} color={palette.green} transparent opacity={SIGN_DIM} />
-        <Text
-          ref={text}
-          font={FONT}
-          color={palette.text}
-          anchorY="middle"
-          fillOpacity={0.3}
-          letterSpacing={0.02}
-          onSync={fitText}
-          {...textProps}
-        >
-          {tool.name}
-        </Text>
+        {/* Logo and name are kept out of the bloom pass (Select): a thin
+            hand-drawn halo instead, so the shape always reads and no glow
+            fills the gaps inside a logo. */}
+        <Select enabled>
+          <Line
+            ref={glow}
+            points={logo}
+            segments
+            lineWidth={2.4}
+            color={palette.green}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            blending={AdditiveBlending}
+          />
+          <Line ref={tube} points={logo} segments lineWidth={1.1} color={palette.green} transparent opacity={SIGN_DIM} />
+          <Line ref={core} points={logo} segments lineWidth={0.7} color={CORE} transparent opacity={0} />
+          <Text
+            ref={text}
+            font={FONT}
+            color={palette.text}
+            anchorY="middle"
+            fillOpacity={0.3}
+            letterSpacing={0.02}
+            onSync={fitText}
+            {...textProps}
+          >
+            {tool.name}
+          </Text>
+        </Select>
       </group>
     </group>
   );
