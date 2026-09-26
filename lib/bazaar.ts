@@ -46,13 +46,13 @@ const ROOF_TO = 0.56;
 const ROOF_MAX_ELEVATION = (17 * Math.PI) / 180;
 
 const BOARD = {
-  frontend: { w: 2.9, h: 1.05, y: 3.9 },
+  frontend: { w: 3.6, h: 1.3, y: 3.8 },
   backend: { w: 0.95, h: 2.9, y: 4.7 },
   server: { w: 5, h: 1.6 },
 };
 // Boards on the same side step up and down so they never overlap on screen.
 const STAGGER = {
-  frontend: 1.35,
+  frontend: 1.75,
   backend: 0.9,
 };
 

@@ -20,6 +20,7 @@ import {
 import {
   ABOUT_LOT,
   ABOUT_WINDOW,
+  BALCONY_DEPTH,
   CREDENTIAL_FLOOR_COUNT,
   CREDENTIALS_LOT,
   FLOOR_HEIGHT,
@@ -29,14 +30,19 @@ import {
   type ContentLot,
 } from "@/lib/contentBuildings";
 import { getDhakaHouse } from "@/lib/dhakaHouse";
-import { aboutScreenEls, credentialLabelEls } from "@/lib/labelStore";
+import { aboutCardEls, credentialLabelEls } from "@/lib/labelStore";
 import { palette } from "@/lib/palette";
 import { scrollStore } from "@/lib/scrollStore";
 import {
   ABOUT_SNIPPET,
+  ABOUT_TIMING,
   CREDENTIALS_TIMING,
+  aboutCard,
+  aboutLabel,
+  aboutLeader,
+  aboutLine1,
+  aboutLine2,
   aboutPhase,
-  aboutScreen,
   aboutTyped,
   cityLit,
   credentialsPhase,
@@ -105,33 +111,84 @@ function AboutHouse() {
   const anchor = useMemo(() => win.clone().setX(win.x + o * 0.1), [win, o]);
   const tmp = useMemo(() => new Vector3(), []);
   const typedRef = useRef(-1);
+  const cardH = useRef(0);
+  // House outline corners (balconies included), to keep the card beside it.
+  const corners = useMemo(() => {
+    const hx = lot.depth / 2 + BALCONY_DEPTH;
+    const hz = lot.width / 2;
+    const out: Vector3[] = [];
+    for (const x of [-hx, hx]) for (const y of [0, lot.top]) for (const z of [-hz, hz]) out.push(new Vector3(x, y, z));
+    return out;
+  }, [lot]);
 
   useFrame(() => {
     const p = aboutPhase(scrollStore.progress);
     const lit = cityLit(p);
-    const scr = aboutScreen(p);
+    const card = aboutCard(p);
+    // The screen inside the window glows while the card types.
+    const scr = smoothstep(ABOUT_TIMING.typeFrom - 0.04, ABOUT_TIMING.typeFrom, p) * (1 - smoothstep(1.02, 1.25, p));
     if (glass.current) glass.current.opacity = lit;
     if (halo.current) halo.current.opacity = lit * (0.3 + 0.3 * scr);
     if (screen.current) screen.current.opacity = scr * 0.9;
 
-    // Screen card: projected next to the window, types the snippet.
-    const { root, code } = aboutScreenEls;
-    if (!root || !code || !group.current) return;
+    const els = aboutCardEls;
+    if (!els.root || !els.code || !els.leader || !els.dot || !group.current) return;
     tmp.copy(anchor);
     group.current.localToWorld(tmp).project(camera);
-    const o2 = tmp.z < 1 ? scr : 0;
-    root.style.opacity = o2.toFixed(3);
-    root.style.visibility = o2 < 0.01 ? "hidden" : "visible";
-    if (o2 >= 0.01) {
-      const x = (tmp.x * 0.5 + 0.5) * size.width;
-      const y = (-tmp.y * 0.5 + 0.5) * size.height;
-      root.style.transform = `translate3d(${(x + 40).toFixed(1)}px, ${y.toFixed(1)}px, 0) translateY(-50%)`;
+    const vis = tmp.z < 1 ? card : 0;
+    els.root.style.opacity = vis.toFixed(3);
+    els.root.style.visibility = vis < 0.01 ? "hidden" : "visible";
+    const showLeader = vis >= 0.01;
+    els.leader.setAttribute("visibility", showLeader ? "visible" : "hidden");
+    els.dot.setAttribute("visibility", showLeader ? "visible" : "hidden");
+    if (vis < 0.01) return;
+
+    const W = size.width;
+    const H = size.height;
+    const wx = (tmp.x * 0.5 + 0.5) * W;
+    const wy = (-tmp.y * 0.5 + 0.5) * H;
+
+    // Left edge of the house on screen: the card sits clear of it.
+    let houseMinX = Infinity;
+    for (const c of corners) {
+      tmp.copy(c);
+      group.current.localToWorld(tmp).project(camera);
+      if (tmp.z < 1) houseMinX = Math.min(houseMinX, (tmp.x * 0.5 + 0.5) * W);
     }
+    const cardW = els.root.offsetWidth;
+    if (!cardH.current) cardH.current = els.root.offsetHeight;
+    const right = Math.min(wx - 70, houseMinX - 36);
+    const left = Math.max(24, right - cardW);
+    const top = Math.min(Math.max(wy - 44, 96), H - cardH.current - 32);
+    els.root.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0)`;
+
+    // Leader: from the window to the card's right edge at the code line,
+    // drawing itself out from the window as the card arrives.
+    const ex = left + cardW;
+    const ey = top + 34;
+    const k = aboutLeader(p);
+    els.leader.setAttribute("x1", wx.toFixed(1));
+    els.leader.setAttribute("y1", wy.toFixed(1));
+    els.leader.setAttribute("x2", (wx + (ex - wx) * k).toFixed(1));
+    els.leader.setAttribute("y2", (wy + (ey - wy) * k).toFixed(1));
+    els.leader.setAttribute("stroke-opacity", (0.85 * vis).toFixed(3));
+    els.dot.setAttribute("cx", wx.toFixed(1));
+    els.dot.setAttribute("cy", wy.toFixed(1));
+    els.dot.setAttribute("fill-opacity", vis.toFixed(3));
+
     const n = Math.round(aboutTyped(p) * ABOUT_SNIPPET.length);
     if (n !== typedRef.current) {
       typedRef.current = n;
-      code.textContent = ABOUT_SNIPPET.slice(0, n);
+      els.code.textContent = ABOUT_SNIPPET.slice(0, n);
     }
+    const reveal = (el: HTMLElement | null, v: number) => {
+      if (!el) return;
+      el.style.opacity = v.toFixed(3);
+      el.style.transform = `translateY(${((1 - v) * 6).toFixed(1)}px)`;
+    };
+    reveal(els.label, aboutLabel(p));
+    reveal(els.line1, aboutLine1(p));
+    reveal(els.line2, aboutLine2(p));
   });
 
   return (

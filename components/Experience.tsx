@@ -8,7 +8,7 @@ import { Overlays, type OverlaysHandle } from "./Overlays";
 import { DebugOverlay } from "./DebugOverlay";
 import { Nav } from "./Nav";
 import { CredentialLabels } from "./CredentialLabels";
-import { AboutScreen } from "./AboutScreen";
+import { AboutCard } from "./AboutCard";
 import { TRACK_ID, TRACK_VH } from "@/lib/sections";
 import { ToolTooltip } from "./ToolTooltip";
 import { HOLDS } from "@/lib/stopMap";
@@ -44,7 +44,7 @@ export function Experience() {
         <Scene onCut={onCut} />
       </div>
       <CredentialLabels />
-      <AboutScreen />
+      <AboutCard />
       <ToolTooltip />
       <Overlays ref={overlays} />
       <div ref={fade} className="pointer-events-none fixed inset-0 z-20 bg-bg-night opacity-0" />

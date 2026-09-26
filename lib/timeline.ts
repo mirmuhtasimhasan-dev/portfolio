@@ -30,12 +30,21 @@ export const ABOUT_TIMING = {
   /** Camera eases a little toward the last window. */
   pushFrom: 0.3,
   pushTo: 0.58,
-  /** Screen types "<h1>Hello</h1>". */
+  /** The card appears and the leader line draws from the window to it. */
+  cardFrom: 0.5,
+  cardTo: 0.58,
+  /** The card types "<h1>Hello</h1>". */
   typeFrom: 0.58,
-  typeTo: 0.8,
-  /** Then the About text fades in. */
-  textFrom: 0.8,
-  textTo: 0.92,
+  typeTo: 0.71,
+  /** "2020 · lockdown" label. */
+  labelFrom: 0.72,
+  labelTo: 0.77,
+  /** "I picked up HTML during lockdown, out of boredom." */
+  line1From: 0.77,
+  line1To: 0.84,
+  /** A short beat, then "I never put it down." */
+  line2From: 0.88,
+  line2To: 0.95,
 };
 
 /** 0..1 how lit the city is before the switch-off (per-window off is in the shader). */
@@ -45,16 +54,16 @@ export const cityLit = (p: number) => smoothstep(ABOUT_TIMING.litFrom, ABOUT_TIM
 export const aboutPush = (p: number) =>
   smoothstep(ABOUT_TIMING.pushFrom, ABOUT_TIMING.pushTo, p) * (1 - smoothstep(1.02, 1.5, p));
 
+const T = ABOUT_TIMING;
+/** The card as a whole (and its leader line), leaving as the camera moves on. */
+export const aboutCard = (p: number) => smoothstep(T.cardFrom, T.cardTo, p) * (1 - smoothstep(1.02, 1.25, p));
+/** 0..1 how far the leader line has drawn. */
+export const aboutLeader = (p: number) => smoothstep(T.cardFrom, T.cardTo + 0.02, p);
 /** Typed characters 0..1 of the snippet. */
-export const aboutTyped = (p: number) =>
-  clamp01((p - ABOUT_TIMING.typeFrom) / (ABOUT_TIMING.typeTo - ABOUT_TIMING.typeFrom));
-
-/** Screen card visibility. */
-export const aboutScreen = (p: number) =>
-  smoothstep(ABOUT_TIMING.pushTo - 0.06, ABOUT_TIMING.typeFrom + 0.02, p) * (1 - smoothstep(1.02, 1.25, p));
-
-/** About text reveal (multiplied with the normal section fade). */
-export const aboutText = (p: number) => smoothstep(ABOUT_TIMING.textFrom, ABOUT_TIMING.textTo, p);
+export const aboutTyped = (p: number) => clamp01((p - T.typeFrom) / (T.typeTo - T.typeFrom));
+export const aboutLabel = (p: number) => smoothstep(T.labelFrom, T.labelTo, p);
+export const aboutLine1 = (p: number) => smoothstep(T.line1From, T.line1To, p);
+export const aboutLine2 = (p: number) => smoothstep(T.line2From, T.line2To, p);
 
 export const ABOUT_SNIPPET = "<h1>Hello</h1>";
 
