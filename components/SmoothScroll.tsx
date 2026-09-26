@@ -10,6 +10,9 @@ import { progressToStop, stopToSection } from "@/lib/stopMap";
 
 gsap.registerPlugin(ScrollTrigger);
 
+/** How much of a mouse-wheel notch Lenis applies (touchpad stays at 1). */
+const WHEEL_NOTCH_SCALE = 0.45;
+
 type Props = {
   /** The tall scroll container that drives master progress. */
   trackId: string;
@@ -28,7 +31,24 @@ export function SmoothScroll({ trackId, onTick }: Props) {
     scrollStore.reducedMotion = reduced;
 
     // Reduced motion keeps native scrolling (no smoothing inertia).
-    const lenis = reduced ? null : new Lenis({ lerp: 0.09, smoothWheel: true, wheelMultiplier: 0.9 });
+    const lenis = reduced
+      ? null
+      : new Lenis({
+          lerp: 0.09,
+          smoothWheel: true,
+          // Touchpads send many small, fractional deltas: leave them at 1x.
+          // A mouse wheel notch is a large whole-number step (or line-based):
+          // scale just those down so one notch moves less.
+          wheelMultiplier: 1,
+          virtualScroll: (data) => {
+            const e = data.event;
+            if (e instanceof WheelEvent) {
+              const notch = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY));
+              if (notch) data.deltaY *= WHEEL_NOTCH_SCALE;
+            }
+            return true;
+          },
+        });
     registerLenis(lenis);
     const raf = (time: number) => lenis?.raf(time * 1000);
     if (lenis) {

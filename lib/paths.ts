@@ -66,13 +66,16 @@ const KEYS: Key[] = [
   // Framed so every floor banner and the signboard beside it are in view.
   { stop: 2, pos: roadFrame(0.29, 0, EYE), look: roadFrame(0.32, -14, EYE + 1) },
   { pos: roadFrame(0.36, 0, EYE), look: roadFrame(0.46, 0, EYE) },
-  // 3 Toolset: looking down the bazaar street.
-  // Look slightly up so the rooftop boards of the Server roof stay in frame.
-  { stop: 3, pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.5, 0, EYE + 3) },
+  // 3 Toolset, Frontend street: looking down the shop signboards.
+  { stop: 3, pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.47, 0, EYE + 1) },
+  // 4 Toolset, Backend gali: further in, the tall narrow signs ahead.
+  { stop: 4, pos: roadFrame(0.452, 0, EYE), look: roadFrame(0.5, 0, EYE + 0.8) },
+  // 5 Toolset, Server roof: further on, looking up at the rooftop signs ahead.
+  { stop: 5, pos: roadFrame(0.478, 0, EYE), look: roadFrame(0.545, 0, 11) },
   { pos: roadFrame(0.5, 0, EYE + 0.5), look: roadFrame(0.6, 0, EYE + 1) },
   { pos: roadFrame(0.565, 0, EYE + 1.5), look: roadFrame(0.66, 0, 5) },
-  // 4 Projects: onto the Hatirjheel stretch.
-  { stop: 4, pos: roadFrame(0.62, 0, 6), look: roadFrame(0.72, 0, 6) },
+  // 6 Projects: onto the Hatirjheel stretch.
+  { stop: 6, pos: roadFrame(0.62, 0, 6), look: roadFrame(0.72, 0, 6) },
   // Follow the road through the bend instead of cutting the corner.
   { pos: roadFrame(0.66, 0, 6), look: roadFrame(0.76, 0, 6) },
   { pos: roadFrame(0.7, 0, 6), look: roadFrame(0.8, 0, 6) },
@@ -80,9 +83,9 @@ const KEYS: Key[] = [
   { pos: roadFrame(0.825, 0, 6), look: roadFrame(0.925, 0, 6.5) },
   { pos: roadFrame(0.87, 0, 6), look: roadFrame(0.97, 0, 7) },
   { pos: roadFrame(0.925, 0, 6), look: roadFrame(1, 0, 9) },
-  // 5 Contact: road end, looking across the lake at Sangsad Bhaban.
+  // 7 Contact: road end, looking across the lake at Sangsad Bhaban.
   {
-    stop: 5,
+    stop: 7,
     pos: roadFrame(0.965, 0, 6),
     look: SANGSAD_POSITION.clone().setY(16),
   },

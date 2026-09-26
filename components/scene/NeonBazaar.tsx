@@ -35,7 +35,8 @@ import { palette } from "@/lib/palette";
 import { roadFrame } from "@/lib/paths";
 import { scrollStore } from "@/lib/scrollStore";
 import { tick } from "@/lib/sound";
-import { SIGN_DIM, SIGN_LEVEL, flickerPattern, smoothstep, toolsetPhase } from "@/lib/timeline";
+import { SIGN_DIM, SIGN_LEVEL, flickerPattern, inBazaar, smoothstep } from "@/lib/timeline";
+import { sectionPhase } from "@/lib/stopMap";
 import { featuredUsing, usedIn } from "@/lib/toolUsage";
 
 const FONT = "/fonts/geist-mono-600.woff";
@@ -118,7 +119,7 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
   useFrame(({ clock }) => {
     const s = st.current;
     const now = clock.elapsedTime;
-    const phase = toolsetPhase(scrollStore.progress);
+    const phase = sectionPhase(scrollStore.progress, spec.section);
     if (phase < -0.6) s.latched = false; // scrolled well back: forget hovers
     const want = phase >= spec.trigger || s.latched;
 
@@ -463,8 +464,7 @@ export function NeonBazaar() {
   useFrame(() => {
     const { root, name, used } = toolTipEls;
     if (!root || !name || !used) return;
-    const phase = toolsetPhase(scrollStore.progress);
-    const current = phase > -0.5 && phase < 1.3 ? (bazaarStore.hovered ?? bazaarStore.selected) : null;
+    const current = inBazaar(scrollStore.stop) ? (bazaarStore.hovered ?? bazaarStore.selected) : null;
     const sign = current ? signs.find((s) => s.tool.name === current) : undefined;
     if (!sign) {
       root.style.visibility = "hidden";
@@ -475,7 +475,7 @@ export function NeonBazaar() {
       shown.current = sign.tool.name;
       name.textContent = sign.tool.name;
       const list = usedIn(sign.tool.name).map((p) => p.name);
-      used.textContent = list.length ? `Used in ${list.join(" · ")}` : "Not in a listed project yet";
+      used.textContent = list.length ? `Used in ${list.join(" · ")}` : "Learning and side builds";
     }
     tmp.copy(sign.anchor).setY(sign.anchor.y + 0.4).project(camera);
     if (tmp.z >= 1) {

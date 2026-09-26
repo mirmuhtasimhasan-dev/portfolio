@@ -16,7 +16,7 @@ export const scrollNav = [
     label: "Work",
     target: sectionIndex("projects"),
     phase: 0.5,
-    sections: [sectionIndex("toolset"), sectionIndex("projects")],
+    sections: [sectionIndex("toolset"), sectionIndex("gali"), sectionIndex("roof"), sectionIndex("projects")],
   },
   {
     label: "Contact",

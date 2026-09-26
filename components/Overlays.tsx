@@ -16,8 +16,18 @@ const SCRIM =
 function Eyebrow({ index, label }: { index: number; label: string }) {
   return (
     <p className="mb-4 font-mono text-xs uppercase tracking-[0.3em] text-green">
-      {String(index + 1).padStart(2, "0")} / {label}
+      {String(SECTIONS[index].num).padStart(2, "0")} / {label}
     </p>
+  );
+}
+
+/** Small caption naming the Neon Bazaar zone at each of its three holds. */
+function ZoneCaption({ index, zone, note }: { index: number; zone: string; note: string }) {
+  return (
+    <Scrimmed className="max-w-md">
+      <Eyebrow index={index} label={`Toolset · ${zone}`} />
+      <p className="text-base text-text-2">{note}</p>
+    </Scrimmed>
   );
 }
 
@@ -40,6 +50,8 @@ const LAYOUT: Record<SectionId, string> = {
   about: "items-center justify-start",
   credentials: "items-start justify-end text-right pt-[14vh]",
   toolset: "items-start justify-center text-center pt-[12vh]",
+  gali: "items-start justify-center text-center pt-[12vh]",
+  roof: "items-end justify-center text-center pb-[10vh]",
   projects: "items-start justify-start pt-[14vh]",
   contact: "items-center justify-center pt-12",
 };
@@ -104,6 +116,10 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
           </p>
         </Scrimmed>
       );
+    case "gali":
+      return <ZoneCaption index={index} zone="Backend gali" note="Tall narrow signs down the lane: what runs behind the page." />;
+    case "roof":
+      return <ZoneCaption index={index} zone="Server roof" note="Up on the rooftops: where it gets shipped and kept running." />;
     case "projects":
       return (
         <Scrimmed className="max-w-xl">

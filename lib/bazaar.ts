@@ -3,7 +3,7 @@ import { tools, type Tool } from "@/data/tools";
 import { projects } from "@/data/projects";
 import { getCity, type Footprint } from "./city";
 import { ROAD_LENGTH, roadFrame, sampleCamera } from "./paths";
-import { sectionIndex } from "./sections";
+import { ZONE_SECTION, sectionIndex } from "./sections";
 
 /*
  * The Neon Bazaar: where each tool's sign hangs along the street ahead of
@@ -26,7 +26,8 @@ export type SignSpec = {
   width: number;
   height: number;
   layout: SignLayout;
-  /** Toolset phase at which the camera "comes near" and it flickers on. */
+  /** The zone's hold (section index), and the phase in it when the sign flickers on. */
+  section: number;
   trigger: number;
   /** Extra structure lines (brackets, roof legs), world space pairs. */
   structure: number[];
@@ -39,15 +40,15 @@ export type SignSpec = {
 // Where each zone starts along the road (arc fraction). The Toolset camera
 // stands at 0.42 looking down the street.
 const FRONTEND_FROM = 0.449;
-// Rooftop boards: on the roofs over the gali, but only where the top of the
-// board stays within ROOF_MAX_ELEVATION of the camera's eye line (in frame).
-const ROOF_FROM = 0.47;
-const ROOF_TO = 0.56;
-const ROOF_MAX_ELEVATION = (17 * Math.PI) / 180;
+// Rooftop boards: on the roofs past the gali, where the Server roof hold can
+// look up at them at a moderate angle (board tops within ROOF_MAX_ELEVATION).
+const ROOF_FROM = 0.515;
+const ROOF_TO = 0.575;
+const ROOF_MAX_ELEVATION = (24 * Math.PI) / 180;
 
 const BOARD = {
   frontend: { w: 3.6, h: 1.3, y: 3.8 },
-  backend: { w: 0.95, h: 2.9, y: 4.7 },
+  backend: { w: 1.3, h: 3.6, y: 5.2 },
   server: { w: 5, h: 1.6 },
 };
 // Boards on the same side step up and down so they never overlap on screen.
@@ -74,12 +75,17 @@ function facing(pos: Vector3, cam: Vector3) {
   return Math.atan2(cam.x - pos.x, cam.z - pos.z);
 }
 
-export function buildBazaar(): SignSpec[] {
+/** Camera position at a zone's hold: signs in that zone face it. */
+function zoneCamera(zone: Tool["zone"]) {
   const cam = new Vector3();
   const look = new Vector3();
-  sampleCamera(sectionIndex("toolset"), cam, look);
+  sampleCamera(sectionIndex(ZONE_SECTION[zone]), cam, look);
+  return cam;
+}
 
-  const specs: Omit<SignSpec, "trigger">[] = [];
+export function buildBazaar(): SignSpec[] {
+
+  const specs: Omit<SignSpec, "trigger" | "section">[] = [];
   const slots = frontageSlots(FRONTEND_FROM);
   let cursor = 0;
   const perSide = { [1]: 0, [-1]: 0 } as Record<1 | -1, number>;
@@ -95,7 +101,7 @@ export function buildBazaar(): SignSpec[] {
       // Inner edge at SIGN_CLEARANCE; the board reaches back toward the wall.
       const lateral = side * (SIGN_CLEARANCE + b.w / 2);
       const position = roadFrame(slot.a, lateral, y);
-      const yaw = facing(position, cam);
+      const yaw = facing(position, zoneCamera(zone));
       const facade = roadFrame(slot.a, side * slot.fp.frontage!.facade, y + b.h / 2);
       const top = position.clone().setY(y + b.h / 2);
       const structure = [top.x, top.y, top.z, facade.x, facade.y, facade.z];
@@ -119,13 +125,14 @@ export function buildBazaar(): SignSpec[] {
   const roofTools = tools.filter((t) => t.zone === "server");
   const used = new Set<Footprint>();
   const topOfBoard = (fp: Footprint) => fp.roof + 1.2 + BOARD.server.h;
+  const roofCam = zoneCamera("server");
   const roofs = getCity()
     .footprints.filter((fp) => {
       const f = fp.frontage;
       if (!f || f.a < ROOF_FROM || f.a > ROOF_TO) return false;
       const p = roadFrame(f.a, f.side * f.facade, 0);
-      const dist = Math.hypot(p.x - cam.x, p.z - cam.z);
-      return Math.atan2(topOfBoard(fp) - cam.y, dist) <= ROOF_MAX_ELEVATION;
+      const dist = Math.hypot(p.x - roofCam.x, p.z - roofCam.z);
+      return Math.atan2(topOfBoard(fp) - roofCam.y, dist) <= ROOF_MAX_ELEVATION;
     })
     .sort((p, q) => p.frontage!.a - q.frontage!.a);
   let wantSide: 1 | -1 = roofs[0]?.frontage?.side ?? 1;
@@ -145,7 +152,7 @@ export function buildBazaar(): SignSpec[] {
     const y = fp.roof + legH + b.h / 2;
     const lateral = f.side * Math.max(SIGN_CLEARANCE + b.w / 2, f.facade + 2.4 + 7 * k);
     const position = roadFrame(f.a, lateral, y);
-    const yaw = facing(position, cam);
+    const yaw = facing(position, zoneCamera("server"));
     // Two legs from the roof to the board's bottom corners.
     const c = Math.cos(yaw);
     const s = Math.sin(yaw);
@@ -170,13 +177,19 @@ export function buildBazaar(): SignSpec[] {
     });
   }
 
-  // Signs flicker on as the camera "comes near": nearest first, through the hold.
-  const byDistance = [...specs].sort((p, q) => p.position.distanceTo(cam) - q.position.distanceTo(cam));
-  const n = Math.max(1, byDistance.length - 1);
-  return specs.map((sp) => ({
-    ...sp,
-    trigger: -0.3 + 0.8 * (byDistance.indexOf(sp) / n),
-  }));
+  // Each zone lights in its own hold, nearest sign first.
+  return specs.map((sp) => {
+    const zc = zoneCamera(sp.zone);
+    const inZone = specs
+      .filter((q) => q.zone === sp.zone)
+      .sort((p, q) => p.position.distanceTo(zc) - q.position.distanceTo(zc));
+    const n = Math.max(1, inZone.length - 1);
+    return {
+      ...sp,
+      section: sectionIndex(ZONE_SECTION[sp.zone]),
+      trigger: -0.3 + 0.6 * (inZone.indexOf(sp) / n),
+    };
+  });
 }
 
 let cached: SignSpec[] | null = null;

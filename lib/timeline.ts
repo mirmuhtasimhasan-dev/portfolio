@@ -97,8 +97,10 @@ export function horizonGlow(progress: number) {
 
 /* ---------- Toolset: Neon Bazaar ---------- */
 
-const TOOLSET = sectionIndex("toolset");
-export const toolsetPhase = (progress: number) => sectionPhase(progress, TOOLSET);
+const TOOLSET_FIRST = sectionIndex("toolset");
+const TOOLSET_LAST = sectionIndex("roof");
+/** True while the camera is anywhere in the Neon Bazaar's three holds. */
+export const inBazaar = (stop: number) => stop > TOOLSET_FIRST - 0.5 && stop < TOOLSET_LAST + 0.3;
 
 /** Brightness per tool level (lit), and the dim "off" tube. */
 export const SIGN_DIM = 0.1;
