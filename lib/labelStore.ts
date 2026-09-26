@@ -8,13 +8,29 @@ export const credentialLabelEls: (HTMLDivElement | null)[] = [];
 /** The About card attached to the lit window, and its leader line. */
 export const aboutCardEls: {
   root: HTMLDivElement | null;
+  codeRow: HTMLParagraphElement | null;
   code: HTMLSpanElement | null;
+  cursor1: HTMLSpanElement | null;
+  cursor2: HTMLSpanElement | null;
   label: HTMLParagraphElement | null;
   line1: HTMLParagraphElement | null;
   line2: HTMLParagraphElement | null;
   leader: SVGLineElement | null;
   dot: SVGCircleElement | null;
-} = { root: null, code: null, label: null, line1: null, line2: null, leader: null, dot: null };
+  spark: SVGCircleElement | null;
+} = {
+  root: null,
+  codeRow: null,
+  code: null,
+  cursor1: null,
+  cursor2: null,
+  label: null,
+  line1: null,
+  line2: null,
+  leader: null,
+  dot: null,
+  spark: null,
+};
 
 /** "Used in" tooltip for the hovered or selected Neon Bazaar sign. */
 export const toolTipEls: { root: HTMLDivElement | null; name: HTMLParagraphElement | null; used: HTMLParagraphElement | null } = {

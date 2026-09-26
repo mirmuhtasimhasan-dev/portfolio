@@ -118,3 +118,6 @@ export function flickerPattern(seed: number): number[] {
   for (let i = 0; i < flickers; i++) out.push(0.04 + 0.05 * r(i + 1), 0.06 + 0.12 * r(i + 11));
   return out;
 }
+
+/** After "I never put it down." is in, the cursor moves to the end of that line. */
+export const aboutCursorOnLastLine = (p: number) => p >= ABOUT_TIMING.line2To;

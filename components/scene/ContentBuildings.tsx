@@ -8,16 +8,22 @@ import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  CircleGeometry,
   Color,
   DynamicDrawUsage,
   EdgesGeometry,
+  PlaneGeometry,
+  Shape,
+  ShapeGeometry,
   Vector3,
   type Group,
   type LineBasicMaterial,
   type LineSegments,
   type MeshBasicMaterial,
 } from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
+  ABOUT_COLS,
   ABOUT_LOT,
   ABOUT_WINDOW,
   BALCONY_DEPTH,
@@ -38,6 +44,7 @@ import {
   ABOUT_TIMING,
   CREDENTIALS_TIMING,
   aboutCard,
+  aboutCursorOnLastLine,
   aboutLabel,
   aboutLeader,
   aboutLine1,
@@ -90,6 +97,61 @@ function useGlowTexture() {
   return tex;
 }
 
+/** Soft light spill: brightest at the top edge, fading down and sideways. */
+function useSpillTexture() {
+  const tex = useMemo(() => {
+    const size = 128;
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const g = c.getContext("2d")!;
+    const grad = g.createRadialGradient(size / 2, 0, 0, size / 2, 0, size);
+    grad.addColorStop(0, "rgba(255,255,255,1)");
+    grad.addColorStop(0.35, "rgba(255,255,255,0.35)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+    return new CanvasTexture(c);
+  }, []);
+  useLayoutEffect(() => () => tex.dispose(), [tex]);
+  return tex;
+}
+
+/**
+ * A person at a desk with a laptop, as flat dark shapes in the window's plane
+ * (x across the window, y up; window is 1.8 x 1.5). Shape only, no detail.
+ */
+function useSilhouette() {
+  return useMemo(() => {
+    const body = new Shape();
+    // Shoulders and back, seated, facing the laptop on the left.
+    body.moveTo(0.52, -0.46);
+    body.lineTo(0.2, -0.46);
+    body.lineTo(0.2, -0.2);
+    body.quadraticCurveTo(0.22, -0.06, 0.33, -0.05);
+    body.quadraticCurveTo(0.47, -0.05, 0.5, -0.18);
+    body.lineTo(0.52, -0.46);
+    const person = new ShapeGeometry(body, 8);
+    const head = new CircleGeometry(0.1, 20);
+    head.translate(0.32, 0.1, 0);
+    const desk = new PlaneGeometry(1.5, 0.05);
+    desk.translate(-0.05, -0.49, 0);
+    // Laptop in profile: base on the desk, screen tilted toward the person.
+    const base = new PlaneGeometry(0.34, 0.025);
+    base.translate(-0.12, -0.455, 0);
+    const lid = new PlaneGeometry(0.028, 0.27);
+    lid.rotateZ(-0.28);
+    lid.translate(-0.3, -0.33, 0);
+    // Same attribute layout for every part so they merge into one geometry.
+    const parts = [person, head, desk, base, lid].map((g) => {
+      const n = g.index ? g.toNonIndexed() : g;
+      n.deleteAttribute("normal");
+      n.deleteAttribute("uv");
+      return n;
+    });
+    return mergeGeometries(parts)!;
+  }, []);
+}
+
 /* ------------------------------------------------------------------ */
 /* About: a Mohammadpur house with the one window that stays on.       */
 /* ------------------------------------------------------------------ */
@@ -102,7 +164,13 @@ function AboutHouse() {
   const glow = useGlowTexture();
   const glass = useRef<MeshBasicMaterial>(null);
   const halo = useRef<MeshBasicMaterial>(null);
-  const screen = useRef<MeshBasicMaterial>(null);
+  const laptop = useRef<MeshBasicMaterial>(null);
+  const figure = useRef<MeshBasicMaterial>(null);
+  const wallSpill = useRef<MeshBasicMaterial>(null);
+  const floorSpill = useRef<MeshBasicMaterial>(null);
+  const spill = useSpillTexture();
+  const silhouette = useSilhouette();
+  useLayoutEffect(() => () => silhouette.dispose(), [silhouette]);
   const group = useRef<Group>(null);
   const camera = useThree((st) => st.camera);
   const size = useThree((st) => st.size);
@@ -112,6 +180,18 @@ function AboutHouse() {
   const tmp = useMemo(() => new Vector3(), []);
   const typedRef = useRef(-1);
   const cardH = useRef(0);
+  const codeY = useRef(0);
+  // The balcony next to the window on the same floor (middle column).
+  const balcony = useMemo(() => {
+    const colW = lot.width / ABOUT_COLS;
+    return {
+      x: lot.facadeX + o * (BALCONY_DEPTH / 2),
+      y: ABOUT_WINDOW.floor * FLOOR_HEIGHT + 0.07,
+      z: -lot.width / 2 + colW * 1.5,
+      w: BALCONY_DEPTH,
+      d: 3,
+    };
+  }, [lot, o]);
   // House outline corners (balconies included), to keep the card beside it.
   const corners = useMemo(() => {
     const hx = lot.depth / 2 + BALCONY_DEPTH;
@@ -121,15 +201,19 @@ function AboutHouse() {
     return out;
   }, [lot]);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     const p = aboutPhase(scrollStore.progress);
     const lit = cityLit(p);
     const card = aboutCard(p);
-    // The screen inside the window glows while the card types.
+    // The laptop glows brighter while the card types.
     const scr = smoothstep(ABOUT_TIMING.typeFrom - 0.04, ABOUT_TIMING.typeFrom, p) * (1 - smoothstep(1.02, 1.25, p));
     if (glass.current) glass.current.opacity = lit;
     if (halo.current) halo.current.opacity = lit * (0.3 + 0.3 * scr);
-    if (screen.current) screen.current.opacity = scr * 0.9;
+    if (figure.current) figure.current.opacity = lit * 0.96;
+    if (laptop.current) laptop.current.opacity = lit * (0.35 + 0.45 * scr);
+    // Warm light from the window on the wall below and the balcony beside it.
+    if (wallSpill.current) wallSpill.current.opacity = lit * 0.2;
+    if (floorSpill.current) floorSpill.current.opacity = lit * 0.28;
 
     const els = aboutCardEls;
     if (!els.root || !els.code || !els.leader || !els.dot || !group.current) return;
@@ -141,6 +225,7 @@ function AboutHouse() {
     const showLeader = vis >= 0.01;
     els.leader.setAttribute("visibility", showLeader ? "visible" : "hidden");
     els.dot.setAttribute("visibility", showLeader ? "visible" : "hidden");
+    if (els.spark) els.spark.setAttribute("visibility", "hidden");
     if (vis < 0.01) return;
 
     const W = size.width;
@@ -157,6 +242,7 @@ function AboutHouse() {
     }
     const cardW = els.root.offsetWidth;
     if (!cardH.current) cardH.current = els.root.offsetHeight;
+    if (!codeY.current && els.codeRow) codeY.current = els.codeRow.offsetTop + els.codeRow.offsetHeight / 2;
     const right = Math.min(wx - 70, houseMinX - 36);
     const left = Math.max(24, right - cardW);
     const top = Math.min(Math.max(wy - 44, 96), H - cardH.current - 32);
@@ -165,7 +251,7 @@ function AboutHouse() {
     // Leader: from the window to the card's right edge at the code line,
     // drawing itself out from the window as the card arrives.
     const ex = left + cardW;
-    const ey = top + 34;
+    const ey = top + (codeY.current || 60);
     const k = aboutLeader(p);
     els.leader.setAttribute("x1", wx.toFixed(1));
     els.leader.setAttribute("y1", wy.toFixed(1));
@@ -175,6 +261,15 @@ function AboutHouse() {
     els.dot.setAttribute("cx", wx.toFixed(1));
     els.dot.setAttribute("cy", wy.toFixed(1));
     els.dot.setAttribute("fill-opacity", vis.toFixed(3));
+
+    // Once the line is fully drawn, a small light runs from window to card on a loop.
+    if (els.spark && k >= 0.999) {
+      const t = (clock.elapsedTime * 0.45) % 1;
+      els.spark.setAttribute("visibility", "visible");
+      els.spark.setAttribute("cx", (wx + (ex - wx) * t).toFixed(1));
+      els.spark.setAttribute("cy", (wy + (ey - wy) * t).toFixed(1));
+      els.spark.setAttribute("fill-opacity", (vis * Math.sin(Math.PI * t)).toFixed(3));
+    }
 
     const n = Math.round(aboutTyped(p) * ABOUT_SNIPPET.length);
     if (n !== typedRef.current) {
@@ -189,6 +284,10 @@ function AboutHouse() {
     reveal(els.label, aboutLabel(p));
     reveal(els.line1, aboutLine1(p));
     reveal(els.line2, aboutLine2(p));
+    // The cursor moves to the end of "I never put it down." once it is in.
+    const onLast = aboutCursorOnLastLine(p);
+    if (els.cursor1) els.cursor1.style.visibility = onLast ? "hidden" : "visible";
+    if (els.cursor2) els.cursor2.style.visibility = onLast ? "visible" : "hidden";
   });
 
   return (
@@ -200,16 +299,43 @@ function AboutHouse() {
         <lineBasicMaterial color={DETAIL_COLOR} fog />
       </lineSegments>
       <group position={[win.x + o * 0.03, win.y, win.z]} rotation={facadeRotation(lot)}>
-        <mesh>
+        <mesh renderOrder={1}>
           <planeGeometry args={[ABOUT_WINDOW.width, ABOUT_WINDOW.height]} />
           <meshBasicMaterial ref={glass} color={palette.window} transparent opacity={0} fog depthWrite={false} />
         </mesh>
-        {/* The screen inside, glowing while it types. */}
-        <mesh position={[0.25, -0.28, 0.01]}>
-          <planeGeometry args={[0.8, 0.5]} />
-          <meshBasicMaterial ref={screen} color={palette.text} transparent opacity={0} fog depthWrite={false} />
+        {/* Someone at a desk with a laptop, as a dark silhouette. */}
+        <mesh geometry={silhouette} position-z={0.006} renderOrder={2}>
+          <meshBasicMaterial ref={figure} color={palette.bgNight} transparent opacity={0} fog depthWrite={false} />
         </mesh>
-        <mesh position-z={0.02}>
+        {/* Laptop glow on the face and the desk. */}
+        <mesh position={[-0.05, -0.3, 0.01]} renderOrder={3}>
+          <planeGeometry args={[0.8, 0.55]} />
+          <meshBasicMaterial
+            ref={laptop}
+            map={glow}
+            color={palette.text}
+            transparent
+            opacity={0}
+            fog
+            depthWrite={false}
+            blending={AdditiveBlending}
+          />
+        </mesh>
+        {/* Warm spill on the wall below the window, leaning toward the balcony. */}
+        <mesh position={[-0.5, -ABOUT_WINDOW.height / 2 - 1.2, 0.015]} renderOrder={3}>
+          <planeGeometry args={[3.4, 2.4]} />
+          <meshBasicMaterial
+            ref={wallSpill}
+            map={spill}
+            color={palette.window}
+            transparent
+            opacity={0}
+            fog
+            depthWrite={false}
+            blending={AdditiveBlending}
+          />
+        </mesh>
+        <mesh position-z={0.02} renderOrder={4}>
           <planeGeometry args={[5, 4.4]} />
           <meshBasicMaterial
             ref={halo}
@@ -223,6 +349,20 @@ function AboutHouse() {
           />
         </mesh>
       </group>
+      {/* Warm spill on the balcony floor beside the window, brightest on the window side. */}
+      <mesh position={[balcony.x, balcony.y, balcony.z]} rotation-x={-Math.PI / 2} renderOrder={3}>
+        <planeGeometry args={[balcony.w, balcony.d]} />
+        <meshBasicMaterial
+          ref={floorSpill}
+          map={spill}
+          color={palette.window}
+          transparent
+          opacity={0}
+          fog
+          depthWrite={false}
+          blending={AdditiveBlending}
+        />
+      </mesh>
     </group>
   );
 }
