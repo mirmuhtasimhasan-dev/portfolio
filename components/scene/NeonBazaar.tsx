@@ -453,7 +453,10 @@ function Billboard({ spec }: { spec: BillboardSpec }) {
 /* ------------------------------------------------------------------ */
 
 export function NeonBazaar() {
-  const signs = useMemo(() => getBazaar(), []);
+  const width = useThree((s) => s.size.width);
+  const height = useThree((s) => s.size.height);
+  // Solved for the actual viewport, so no sign is cut off or overlaps.
+  const signs = useMemo(() => getBazaar(width, height), [width, height]);
   const billboards = useMemo(() => buildBillboards(), []);
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);

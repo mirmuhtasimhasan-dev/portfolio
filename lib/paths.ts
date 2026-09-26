@@ -68,11 +68,10 @@ const KEYS: Key[] = [
   { pos: roadFrame(0.36, 0, EYE), look: roadFrame(0.46, 0, EYE) },
   // 3 Toolset, Frontend street: looking down the shop signboards.
   { stop: 3, pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.47, 0, EYE + 1) },
-  // 4 Toolset, Backend gali: further in, the tall narrow signs ahead.
-  { stop: 4, pos: roadFrame(0.452, 0, EYE), look: roadFrame(0.5, 0, EYE + 0.8) },
-  // 5 Toolset, Server roof: further on, looking up at the rooftop signs ahead.
-  { stop: 5, pos: roadFrame(0.478, 0, EYE), look: roadFrame(0.545, 0, 11) },
-  { pos: roadFrame(0.5, 0, EYE + 0.5), look: roadFrame(0.6, 0, EYE + 1) },
+  // 4 Toolset, Backend gali: past the shop boards, the row of tall signs ahead.
+  { stop: 4, pos: roadFrame(0.488, 0, EYE), look: roadFrame(0.53, 0, EYE + 1) },
+  // 5 Toolset, Server roof: further on, looking up at the rooftop line ahead.
+  { stop: 5, pos: roadFrame(0.515, 0, EYE), look: roadFrame(0.575, 0, 12) },
   { pos: roadFrame(0.565, 0, EYE + 1.5), look: roadFrame(0.66, 0, 5) },
   // 6 Projects: onto the Hatirjheel stretch.
   { stop: 6, pos: roadFrame(0.62, 0, 6), look: roadFrame(0.72, 0, 6) },

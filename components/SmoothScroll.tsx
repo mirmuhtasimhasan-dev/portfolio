@@ -11,7 +11,7 @@ import { progressToStop, stopToSection } from "@/lib/stopMap";
 gsap.registerPlugin(ScrollTrigger);
 
 /** How much of a mouse-wheel notch Lenis applies (touchpad stays at 1). */
-const WHEEL_NOTCH_SCALE = 0.45;
+const WHEEL_NOTCH_SCALE = 0.675;
 
 type Props = {
   /** The tall scroll container that drives master progress. */

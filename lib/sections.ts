@@ -8,9 +8,9 @@ export const SECTIONS = [
   { id: "hero", label: "Hero", weight: 1, num: 1 },
   { id: "about", label: "About", weight: 1.8, num: 2 },
   { id: "credentials", label: "Credentials", weight: 1.8, num: 3 },
-  { id: "toolset", label: "Toolset: Frontend street", weight: 1.3, num: 4 },
-  { id: "gali", label: "Toolset: Backend gali", weight: 1.3, num: 4 },
-  { id: "roof", label: "Toolset: Server roof", weight: 1.3, num: 4 },
+  { id: "toolset", label: "Toolset: Frontend street", weight: 1.1, num: 4 },
+  { id: "gali", label: "Toolset: Backend gali", weight: 1.1, num: 4 },
+  { id: "roof", label: "Toolset: Server roof", weight: 1.1, num: 4 },
   { id: "projects", label: "Projects", weight: 1, num: 5 },
   { id: "contact", label: "Contact", weight: 1, num: 6 },
 ] as const;

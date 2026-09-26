@@ -1,18 +1,29 @@
-import { Vector3 } from "three";
+import { PerspectiveCamera, Vector3 } from "three";
 import { tools, type Tool } from "@/data/tools";
 import { projects } from "@/data/projects";
 import { getCity, type Footprint } from "./city";
-import { ROAD_LENGTH, roadFrame, sampleCamera } from "./paths";
+import { ROAD_LENGTH, roadCurve, roadFrame, sampleCamera } from "./paths";
 import { ZONE_SECTION, sectionIndex } from "./sections";
 
 /*
- * The Neon Bazaar: where each tool's sign hangs along the street ahead of
- * the Toolset stop. Signs are mounted on real frontage buildings (from the
- * generator's footprints), face the Toolset camera so they read down the
- * street, and never come closer than SIGN_CLEARANCE to the road center.
+ * The Neon Bazaar layout. Every sign is placed by a small solver so that,
+ * seen from each Toolset hold at the actual viewport size:
+ *   - the signs of that hold's zone are fully in frame, clear of the nav and
+ *     the hold's title or caption,
+ *   - at each hold, no sign of that hold's zone overlaps any other sign,
+ *   - every sign's inner edge stays SIGN_CLEARANCE from the road center.
+ * Zone rules:
+ *   Frontend street: shop boards alternating across both sides, like a market.
+ *   Backend gali:    one row of tall signs on the right.
+ *   Server roof:     one line along the rooftop edge on the left, one height.
+ * Within a zone every sign has the same size and height and faces that
+ * zone's hold camera. Along one side, same-size boards facing the camera can
+ * only avoid overlapping if they are spaced evenly as seen from the hold,
+ * which is what the solver does (the next sign goes just past the previous
+ * one on screen, with a fixed gap).
  */
 
-export const SIGN_CLEARANCE = 8.7;
+export const SIGN_CLEARANCE = 8.9;
 
 export type SignLayout = "row" | "column";
 
@@ -21,7 +32,7 @@ export type SignSpec = {
   zone: Tool["zone"];
   /** Board center in world space. */
   position: Vector3;
-  /** Rotation about Y so the board faces the Toolset camera. */
+  /** Rotation about Y so the board faces its zone's hold camera. */
   yaw: number;
   width: number;
   height: number;
@@ -37,163 +48,230 @@ export type SignSpec = {
   a: number;
 };
 
-// Where each zone starts along the road (arc fraction). The Toolset camera
-// stands at 0.42 looking down the street.
-const FRONTEND_FROM = 0.449;
-// Rooftop boards: on the roofs past the gali, where the Server roof hold can
-// look up at them at a moderate angle (board tops within ROOF_MAX_ELEVATION).
-const ROOF_FROM = 0.515;
-const ROOF_TO = 0.575;
-const ROOF_MAX_ELEVATION = (24 * Math.PI) / 180;
+type Zone = Tool["zone"];
 
-const BOARD = {
-  frontend: { w: 3.6, h: 1.3, y: 3.8 },
-  backend: { w: 1.3, h: 3.6, y: 5.2 },
-  server: { w: 5, h: 1.6 },
-};
-// Boards on the same side step up and down so they never overlap on screen.
-const STAGGER = {
-  frontend: 1.75,
-  backend: 0.9,
+const BOARD: Record<Zone, { w: number; h: number; y: number }> = {
+  frontend: { w: 3.4, h: 1.25, y: 4.6 },
+  backend: { w: 1.3, h: 3.6, y: 5.1 },
+  // y is the one line height for the whole roof row (board center).
+  server: { w: 4.4, h: 1.4, y: 18.2 },
 };
 
-type Slot = { fp: Footprint; a: number };
+/** Where each zone may start along the road, and which side(s) it uses. */
+const ZONE_RULES: Record<Zone, { from: number; to: number; sides: (1 | -1)[] }> = {
+  frontend: { from: 0.43, to: 0.5, sides: [-1, 1] },
+  backend: { from: 0.5, to: 0.555, sides: [1] },
+  server: { from: 0.535, to: 0.615, sides: [-1] },
+};
 
-function frontageSlots(from: number): Slot[] {
-  const slots: Slot[] = [];
-  for (const fp of getCity().footprints) {
-    const f = fp.frontage;
-    if (!f || f.a < from - 0.02) continue;
-    // Two slots per building, a quarter of its width either side of center.
-    const d = (f.halfWidth * 0.5) / ROAD_LENGTH;
-    for (const a of [f.a - d, f.a + d]) if (a >= from) slots.push({ fp, a });
-  }
-  return slots.sort((p, q) => p.a - q.a);
+const SEARCH_STEP = 0.0004;
+/** Screen gaps, in CSS pixels. */
+const GAP = 14;
+const EDGE = 28;
+const NAV_H = 76;
+
+/** Screen areas taken by each hold's text (see Overlays LAYOUT), in px. */
+function textRects(section: number, w: number, h: number): Rect[] {
+  const nav: Rect = { x0: 0, y0: 0, x1: w, y1: NAV_H };
+  const center = (width: number, y0: number, y1: number): Rect => ({
+    x0: w / 2 - width / 2,
+    y0,
+    x1: w / 2 + width / 2,
+    y1,
+  });
+  if (section === sectionIndex("toolset")) return [nav, center(560, 0.12 * h - 20, 0.12 * h + 175)];
+  if (section === sectionIndex("gali")) return [nav, center(480, 0.12 * h - 20, 0.12 * h + 70)];
+  if (section === sectionIndex("roof")) return [nav, center(480, h - 0.1 * h - 80, h - 0.1 * h + 10)];
+  return [nav];
 }
 
-function facing(pos: Vector3, cam: Vector3) {
-  return Math.atan2(cam.x - pos.x, cam.z - pos.z);
-}
+type Rect = { x0: number; y0: number; x1: number; y1: number };
+const overlaps = (p: Rect, q: Rect, gap = 0) =>
+  p.x0 < q.x1 + gap && q.x0 < p.x1 + gap && p.y0 < q.y1 + gap && q.y0 < p.y1 + gap;
 
-/** Camera position at a zone's hold: signs in that zone face it. */
-function zoneCamera(zone: Tool["zone"]) {
-  const cam = new Vector3();
+type Hold = { section: number; zone: Zone; cam: PerspectiveCamera; texts: Rect[] };
+
+function holdCamera(section: number, aspect: number) {
+  const pos = new Vector3();
   const look = new Vector3();
-  sampleCamera(sectionIndex(ZONE_SECTION[zone]), cam, look);
+  sampleCamera(section, pos, look);
+  const cam = new PerspectiveCamera(55, aspect, 2, 2000);
+  cam.position.copy(pos);
+  cam.lookAt(look);
+  cam.updateMatrixWorld();
+  cam.updateProjectionMatrix();
   return cam;
 }
 
-export function buildBazaar(): SignSpec[] {
-
-  const specs: Omit<SignSpec, "trigger" | "section">[] = [];
-  const slots = frontageSlots(FRONTEND_FROM);
-  let cursor = 0;
-  const perSide = { [1]: 0, [-1]: 0 } as Record<1 | -1, number>;
-
-  // Frontend street and Backend gali: hanging boards on the facades.
-  for (const zone of ["frontend", "backend"] as const) {
-    const b = BOARD[zone];
-    for (const tool of tools.filter((t) => t.zone === zone)) {
-      const slot = slots[cursor++];
-      if (!slot) break;
-      const side = slot.fp.frontage!.side;
-      const y = b.y + (perSide[side]++ % 2) * STAGGER[zone];
-      // Inner edge at SIGN_CLEARANCE; the board reaches back toward the wall.
-      const lateral = side * (SIGN_CLEARANCE + b.w / 2);
-      const position = roadFrame(slot.a, lateral, y);
-      const yaw = facing(position, zoneCamera(zone));
-      const facade = roadFrame(slot.a, side * slot.fp.frontage!.facade, y + b.h / 2);
-      const top = position.clone().setY(y + b.h / 2);
-      const structure = [top.x, top.y, top.z, facade.x, facade.y, facade.z];
-      specs.push({
-        tool,
-        zone,
-        position,
-        yaw,
-        width: b.w,
-        height: b.h,
-        layout: zone === "frontend" ? "row" : "column",
-        structure,
-        anchor: top,
-        side,
-        a: slot.a,
-      });
+const tmp = new Vector3();
+/** Screen rect of a board from a camera, or null if any corner is behind it. */
+function project(cam: PerspectiveCamera, c: Vector3, yaw: number, bw: number, bh: number, w: number, h: number): Rect | null {
+  const cs = Math.cos(yaw);
+  const sn = Math.sin(yaw);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const u of [-bw / 2, bw / 2]) {
+    for (const v of [-bh / 2, bh / 2]) {
+      tmp.set(c.x + u * cs, c.y + v, c.z - u * sn).project(cam);
+      if (tmp.z > 1 || tmp.z < -1) return null;
+      const x = (tmp.x * 0.5 + 0.5) * w;
+      const y = (-tmp.y * 0.5 + 0.5) * h;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y); y1 = Math.max(y1, y);
     }
   }
+  return { x0, y0, x1, y1 };
+}
 
-  // Server roof: boards on rooftop frames over the gali, nearest that fit in frame.
-  const roofTools = tools.filter((t) => t.zone === "server");
-  const used = new Set<Footprint>();
-  const topOfBoard = (fp: Footprint) => fp.roof + 1.2 + BOARD.server.h;
-  const roofCam = zoneCamera("server");
-  const roofs = getCity()
-    .footprints.filter((fp) => {
-      const f = fp.frontage;
-      if (!f || f.a < ROOF_FROM || f.a > ROOF_TO) return false;
-      const p = roadFrame(f.a, f.side * f.facade, 0);
-      const dist = Math.hypot(p.x - roofCam.x, p.z - roofCam.z);
-      return Math.atan2(topOfBoard(fp) - roofCam.y, dist) <= ROOF_MAX_ELEVATION;
-    })
-    .sort((p, q) => p.frontage!.a - q.frontage!.a);
-  let wantSide: 1 | -1 = roofs[0]?.frontage?.side ?? 1;
-  const roofsPerSide = { [1]: 0, [-1]: 0 } as Record<1 | -1, number>;
-  for (const tool of roofTools) {
-    const fp =
-      roofs.find((r) => !used.has(r) && r.frontage!.side === wantSide) ?? roofs.find((r) => !used.has(r));
-    if (!fp) break;
-    used.add(fp);
-    wantSide = (fp.frontage!.side * -1) as 1 | -1;
-    const f = fp.frontage!;
-    const b = BOARD.server;
-    // A farther board on the same side stands taller and further back on its
-    // roof, so it shows above and outside the nearer one (and the title).
-    const k = roofsPerSide[f.side]++;
-    const legH = 1.2 + 2.6 * k;
-    const y = fp.roof + legH + b.h / 2;
-    const lateral = f.side * Math.max(SIGN_CLEARANCE + b.w / 2, f.facade + 2.4 + 7 * k);
-    const position = roadFrame(f.a, lateral, y);
-    const yaw = facing(position, zoneCamera("server"));
-    // Two legs from the roof to the board's bottom corners.
-    const c = Math.cos(yaw);
-    const s = Math.sin(yaw);
-    const structure: number[] = [];
-    for (const u of [-b.w * 0.35, b.w * 0.35]) {
-      const x = position.x + u * c;
-      const z = position.z - u * s;
-      structure.push(x, fp.roof, z, x, y - b.h / 2, z);
-    }
-    specs.push({
-      tool,
-      zone: "server",
-      position,
-      yaw,
-      width: b.w,
-      height: b.h,
-      layout: "row",
-      structure,
-      anchor: position.clone().setY(y + b.h / 2),
-      side: f.side,
-      a: f.a,
+const facing = (pos: Vector3, cam: Vector3) => Math.atan2(cam.x - pos.x, cam.z - pos.z);
+
+/** Board pose at road fraction a on a side: faces the camera, inner edge at SIGN_CLEARANCE. */
+function pose(a: number, side: 1 | -1, y: number, bw: number, cam: Vector3) {
+  const t = roadCurve.getTangentAt(a);
+  const right = new Vector3(-t.z, 0, t.x);
+  let lateral = SIGN_CLEARANCE + bw / 2;
+  let position = roadFrame(a, side * lateral, y);
+  let yaw = facing(position, cam);
+  for (let i = 0; i < 3; i++) {
+    const axis = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    lateral = SIGN_CLEARANCE + (bw / 2) * Math.abs(axis.dot(right)) + 0.05;
+    position = roadFrame(a, side * lateral, y);
+    yaw = facing(position, cam);
+  }
+  return { position, yaw };
+}
+
+/** The frontage building (if any) standing at road fraction a on a side. */
+function frontageAt(a: number, side: 1 | -1): Footprint | undefined {
+  return getCity().footprints.find(
+    (f) => f.frontage && f.frontage.side === side && Math.abs(f.frontage.a - a) * ROAD_LENGTH < f.frontage.halfWidth - 0.6
+  );
+}
+
+export function buildBazaar(width = 1440, height = 900): SignSpec[] {
+  const aspect = width / Math.max(1, height);
+  const holds: Hold[] = (Object.keys(ZONE_SECTION) as Zone[]).map((zone) => {
+    const section = sectionIndex(ZONE_SECTION[zone]);
+    return { section, zone, cam: holdCamera(section, aspect), texts: textRects(section, width, height) };
+  });
+  const holdOf = (zone: Zone) => holds.find((hd) => hd.zone === zone)!;
+
+  type Placed = { spec: Omit<SignSpec, "trigger">; rects: (Rect | null)[] };
+  const placed: Placed[] = [];
+
+  for (const zone of ["frontend", "backend", "server"] as Zone[]) {
+    const b = BOARD[zone];
+    const rule = ZONE_RULES[zone];
+    const hold = holdOf(zone);
+    const camPos = hold.cam.position;
+    const nextA: Record<number, number> = { [1]: rule.from, [-1]: rule.from };
+    const zoneTools = tools.filter((t) => t.zone === zone);
+
+    zoneTools.forEach((tool, i) => {
+      const side = rule.sides[i % rule.sides.length];
+      for (let a = nextA[side]; a <= rule.to; a += SEARCH_STEP) {
+        // Server roof: needs a low-enough frontage roof under the board.
+        let roof: Footprint | undefined;
+        if (zone === "server") {
+          roof = frontageAt(a, side);
+          if (!roof || roof.roof > b.y - b.h / 2 - 1) continue;
+        }
+        const lateralMin = zone === "server" && roof ? roof.frontage!.facade + 0.6 : 0;
+        let { position, yaw } = pose(a, side, b.y, b.w, camPos);
+        if (lateralMin) {
+          // Sit on the roof's road edge rather than out over the street.
+          position = roadFrame(a, side * Math.max(lateralMin + b.w / 2, SIGN_CLEARANCE + b.w / 2), b.y);
+          yaw = facing(position, camPos);
+        }
+        const rects = holds.map((hd) => project(hd.cam, position, yaw, b.w, b.h, width, height));
+        const own = rects[holds.indexOf(hold)];
+        if (!own) continue;
+        // Fully in frame at its own hold, clear of the text there.
+        if (own.x0 < EDGE || own.x1 > width - EDGE || own.y0 < NAV_H + 4 || own.y1 > height - EDGE) continue;
+        if (hold.texts.some((r) => overlaps(own, r, 8))) continue;
+        // At each hold, the signs of that hold's zone overlap nothing:
+        // here that means this sign clears every placed sign at its own hold,
+        // and clears the focus zone's signs at the other holds.
+        const clash = placed.some((p) =>
+          holds.some((hd, k) => {
+            const r = rects[k];
+            const q = p.rects[k];
+            if (!r || !q) return false;
+            const matters = hd === hold || p.spec.zone === hd.zone;
+            return matters && overlaps(r, q, GAP);
+          })
+        );
+        if (clash) continue;
+        // Also clear of the other holds' text where this sign is visible there.
+        const textClash = holds.some(
+          (hd, k) => hd !== hold && rects[k] && inFrame(rects[k]!, width, height) && hd.texts.some((r) => overlaps(rects[k]!, r, 4))
+        );
+        if (textClash) continue;
+
+        const top = position.clone().setY(b.y + b.h / 2);
+        const structure: number[] = [];
+        if (zone === "server" && roof) {
+          const c = Math.cos(yaw);
+          const s = Math.sin(yaw);
+          for (const u of [-b.w * 0.35, b.w * 0.35]) {
+            const x = position.x + u * c;
+            const z = position.z - u * s;
+            structure.push(x, roof.roof, z, x, b.y - b.h / 2, z);
+          }
+        } else {
+          // Bracket from the top of the board back to the facade behind it.
+          const fp = frontageAt(a, side);
+          const facade = roadFrame(a, side * (fp ? fp.frontage!.facade : SIGN_CLEARANCE + b.w + 0.5), b.y + b.h / 2);
+          structure.push(top.x, top.y, top.z, facade.x, facade.y, facade.z);
+        }
+        placed.push({
+          spec: {
+            tool,
+            zone,
+            position,
+            yaw,
+            width: b.w,
+            height: b.h,
+            layout: zone === "backend" ? "column" : "row",
+            section: hold.section,
+            structure,
+            anchor: top,
+            side,
+            a,
+          },
+          rects,
+        });
+        nextA[side] = a + SEARCH_STEP;
+        return;
+      }
+      if (process.env.NODE_ENV !== "production") console.warn(`[bazaar] no room for ${tool.name} in ${zone}`);
     });
   }
 
   // Each zone lights in its own hold, nearest sign first.
-  return specs.map((sp) => {
-    const zc = zoneCamera(sp.zone);
-    const inZone = specs
-      .filter((q) => q.zone === sp.zone)
+  return placed.map(({ spec }) => {
+    const zc = holdOf(spec.zone).cam.position;
+    const inZone = placed
+      .map((p) => p.spec)
+      .filter((q) => q.zone === spec.zone)
       .sort((p, q) => p.position.distanceTo(zc) - q.position.distanceTo(zc));
     const n = Math.max(1, inZone.length - 1);
-    return {
-      ...sp,
-      section: sectionIndex(ZONE_SECTION[sp.zone]),
-      trigger: -0.3 + 0.6 * (inZone.indexOf(sp) / n),
-    };
+    return { ...spec, trigger: -0.3 + 0.6 * (inZone.indexOf(spec) / n) };
   });
 }
 
-let cached: SignSpec[] | null = null;
-export const getBazaar = () => (cached ??= buildBazaar());
+const inFrame = (r: Rect, w: number, h: number) => r.x1 > 0 && r.x0 < w && r.y1 > 0 && r.y0 < h;
+
+// Cached per viewport size (rounded), since the layout is solved on screen.
+const cache = new Map<string, SignSpec[]>();
+export function getBazaar(width = 1440, height = 900) {
+  const key = `${Math.round(width / 40)}x${Math.round(height / 40)}`;
+  let hit = cache.get(key);
+  if (!hit) {
+    hit = buildBazaar(width, height);
+    cache.set(key, hit);
+  }
+  return hit;
+}
 
 /* ---------------- Projects billboards (placeholders until Phase 4) ---------------- */
 

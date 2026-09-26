@@ -24,7 +24,7 @@ import {
  */
 
 // The Neon Bazaar street (Toolset): low shop-houses, so rooftop signs stay in view.
-export const BAZAAR_STRETCH = { from: 0.43, to: 0.565 };
+export const BAZAAR_STRETCH = { from: 0.43, to: 0.62 };
 // Hatirjheel stretch: low buildings only until the bridge arrives (phase 4).
 const HATIRJHEEL = { from: 0.6, to: 0.9, clearance: 60 };
 
