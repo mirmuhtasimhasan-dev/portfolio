@@ -29,6 +29,9 @@ import { scrollStore } from "@/lib/scrollStore";
 import { tick } from "@/lib/sound";
 import { SIGN_DIM, SIGN_LEVEL, flickerPattern, inBazaar, smoothstep } from "@/lib/timeline";
 import { sectionPhase } from "@/lib/stopMap";
+import { sectionIndex } from "@/lib/sections";
+
+const ROOF_SECTION = sectionIndex("roof");
 import { featuredUsing, usedIn } from "@/lib/toolUsage";
 
 const FONT = "/fonts/geist-mono-600.woff";
@@ -108,7 +111,7 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
   }, [spec.structure]);
   useLayoutEffect(() => () => structure.dispose(), [structure]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     const s = st.current;
     const now = clock.elapsedTime;
     const phase = sectionPhase(scrollStore.progress, spec.section);
@@ -142,8 +145,15 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     const selected = bazaarStore.selected === tool.name;
     // At a Toolset hold only that zone stays bright; the others dim to 30%.
     const stop = scrollStore.stop;
-    const focus = inBazaar(stop) ? Math.max(0, 1 - Math.abs(stop - spec.section)) : 1;
-    const k = hovered || selected ? 1 : 0.3 + 0.7 * focus;
+    // At a Toolset hold only that zone is bright. Other zones dim to 30%,
+    // and to 10% when close to the camera or at the Server roof hold, so
+    // they never pull focus.
+    const inZone = inBazaar(stop);
+    const focus = inZone ? Math.max(0, 1 - Math.abs(stop - spec.section)) : 1;
+    const near = spec.position.distanceTo(camera.position) < 30;
+    const atRoof = inZone && Math.abs(stop - ROOF_SECTION) < 0.5;
+    const rest = near || atRoof ? 0.1 : 0.3;
+    const k = hovered || selected ? 1 : rest + (1 - rest) * focus;
     const b = (SIGN_DIM + (lit - SIGN_DIM) * s.x) * k;
     const tm = tube.current?.material;
     if (tm) tm.opacity = b;

@@ -27,7 +27,7 @@ function ZoneCaption({ index, zone, note }: { index: number; zone: string; note:
   return (
     <Scrimmed className="max-w-md">
       <Eyebrow index={index} label={`Toolset · ${zone}`} />
-      <p className="text-base text-text-2">{note}</p>
+      <p className="text-lg text-text">{note}</p>
     </Scrimmed>
   );
 }

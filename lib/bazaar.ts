@@ -3,6 +3,7 @@ import { tools, type Tool } from "@/data/tools";
 import { getCity, type Footprint } from "./city";
 import { ROAD_LENGTH, roadCurve, roadFrame, sampleCamera } from "./paths";
 import { ZONE_SECTION, sectionIndex } from "./sections";
+import { ROOF_ROW, roofRowSlots } from "./roofRow";
 import { BRIDGE_FROM, BRIDGE_TO, GANTRY_A } from "./bridge";
 
 /*
@@ -164,7 +165,56 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
   type Placed = { spec: Omit<SignSpec, "trigger">; rects: (Rect | null)[] };
   const placed: Placed[] = [];
 
-  for (const zone of ["frontend", "backend", "server"] as Zone[]) {
+  // Server roof: one straight row on a rooftop edge (see roofRow.ts).
+  {
+    const roofTools = tools.filter((t) => t.zone === "server");
+    const hold = holdOf("server");
+    const slots = roofRowSlots(roofTools.length);
+    roofTools.forEach((tool, k) => {
+      const { position, yaw } = slots[k];
+      const rects = holds.map((hd) => project(hd.cam, position, yaw, ROOF_ROW.w, ROOF_ROW.h, width, height));
+      // Two legs down to the rooftop (or the ground) under each board.
+      const c = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      const structure: number[] = [];
+      for (const u of [-ROOF_ROW.w * 0.36, ROOF_ROW.w * 0.36]) {
+        const x = position.x + u * c;
+        const z = position.z - u * sn;
+        const under = getCity().footprints.find((f) => {
+          const dx = x - f.x;
+          const dz = z - f.z;
+          const cc = Math.cos(f.yaw);
+          const ss = Math.sin(f.yaw);
+          return Math.abs(dx * cc - dz * ss) < f.sx / 2 && Math.abs(dx * ss + dz * cc) < f.sz / 2;
+        });
+        structure.push(x, under ? under.roof : 0, z, x, ROOF_ROW.y - ROOF_ROW.h / 2, z);
+      }
+      // A rail joining the row along the rooftop edge.
+      if (k > 0) {
+        const p = slots[k - 1].position;
+        structure.push(p.x, ROOF_ROW.y - ROOF_ROW.h / 2 - 0.3, p.z, position.x, ROOF_ROW.y - ROOF_ROW.h / 2 - 0.3, position.z);
+      }
+      placed.push({
+        spec: {
+          tool,
+          zone: "server",
+          position,
+          yaw,
+          width: ROOF_ROW.w,
+          height: ROOF_ROW.h,
+          layout: "row",
+          section: hold.section,
+          structure,
+          anchor: position.clone().setY(ROOF_ROW.y + ROOF_ROW.h / 2),
+          side: -1,
+          a: ROOF_ROW.a,
+        },
+        rects,
+      });
+    });
+  }
+
+  for (const zone of ["frontend", "backend"] as Zone[]) {
     const b = BOARD[zone];
     const rule = ZONE_RULES[zone];
     const hold = holdOf(zone);

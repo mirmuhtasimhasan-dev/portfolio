@@ -87,13 +87,14 @@ export const BILLBOARDS: BillboardSpec[] = FEATURED.map((project, index) => {
   };
 });
 
-/** "All projects" neon sign at the end of the bridge, facing the last hold. */
+// Same side as the last billboard, just past it: fully in frame beside it at
+// the last hold (checked 1280x800 to 1920x1080), low, not overlapping it.
 export const ALL_PROJECTS_SIGN = (() => {
   const last = BILLBOARDS[BILLBOARDS.length - 1];
-  const a = BRIDGE_TO - 0.01;
-  const side = (last ? -last.side : 1) as 1 | -1;
+  const a = last ? last.a + 0.02 : BRIDGE_TO - 0.01;
+  const side = (last ? last.side : 1) as 1 | -1;
   const cam = last ? last.hold : roadFrame(a - 0.03, 0, BRIDGE_EYE);
-  return { a, side, w: 3.4, h: 0.9, ...facingPose(a, side, 2.4, 3.4, cam) };
+  return { a, side, w: 3.6, h: 0.9, ...facingPose(a, side, 2.2, 3.6, cam) };
 })();
 
 /** Along-road metres between two road fractions. */

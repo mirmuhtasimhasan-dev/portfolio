@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Line, Text, useTexture } from "@react-three/drei";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import {
   Color,
   SRGBColorSpace,
   Vector3,
+  type Group,
   type Mesh,
   type MeshBasicMaterial,
 } from "three";
@@ -35,6 +36,7 @@ import { projectStore } from "@/lib/projectStore";
 import { scrollToSection } from "@/lib/scrollNav";
 import { projectSectionId, sectionIndex } from "@/lib/sections";
 import { smoothstep } from "@/lib/timeline";
+import { scrollStore } from "@/lib/scrollStore";
 
 const FONT = "/fonts/geist-mono-600.woff";
 const GREEN = new Color(palette.green);
@@ -595,7 +597,8 @@ function AllProjectsSign() {
         <Line ref={glow} points={rectPoints(s.w, s.h)} segments lineWidth={7} color={palette.green} transparent opacity={0.28} depthWrite={false} blending={AdditiveBlending} />
         <Line points={rectPoints(s.w, s.h)} segments lineWidth={1.6} color={palette.green} />
         <Suspense fallback={null}>
-          <Text font={FONT} fontSize={0.4} color={palette.green} anchorX="center" anchorY="middle" position={[-0.25, 0, 0.03]}>
+          {/* "All projects" (12 chars at ~0.6 em) plus the arrow, with padding. */}
+          <Text font={FONT} fontSize={0.34} color={palette.green} anchorX="left" anchorY="middle" whiteSpace="nowrap" position={[-s.w / 2 + 0.22, 0, 0.03]}>
             All projects
           </Text>
         </Suspense>
@@ -605,18 +608,60 @@ function AllProjectsSign() {
   );
 }
 
+/**
+ * Fades a whole group in and out from scroll (stop space), so a sign never
+ * pops in or shows half-cut at the screen edge before its moment. Children
+ * may animate their own opacity every frame: a change since our last write
+ * is taken as the new base, then scaled by the fade.
+ */
+function ScrollFade({ show, children }: { show: (stop: number) => number; children: ReactNode }) {
+  const group = useRef<Group>(null);
+  useFrame(() => {
+    const g = group.current;
+    if (!g) return;
+    const k = show(scrollStore.stop);
+    g.visible = k > 0.002;
+    if (!g.visible) return;
+    g.traverse((o) => {
+      const mats = (o as Mesh).material;
+      if (!mats) return;
+      for (const m of Array.isArray(mats) ? mats : [mats]) {
+        const u = m.userData as { fadeBase?: number; fadeWrote?: number };
+        if (u.fadeBase === undefined || m.opacity !== u.fadeWrote) u.fadeBase = m.opacity;
+        m.transparent = true;
+        m.opacity = u.fadeBase * k;
+        u.fadeWrote = m.opacity;
+      }
+    });
+  });
+  return <group ref={group}>{children}</group>;
+}
+
+const GANTRY_SECTION = sectionIndex("projects");
+const LAST_BILLBOARD_SECTION = BILLBOARDS.length
+  ? sectionIndex(projectSectionId(BILLBOARDS[BILLBOARDS.length - 1].project.slug))
+  : GANTRY_SECTION;
+/** Gantry: fades in as the camera leaves the Server roof for it. */
+const gantryShow = (stop: number) => smoothstep(GANTRY_SECTION - 0.85, GANTRY_SECTION - 0.45, stop);
+/** "All projects": fades in on the way into the last billboard hold. */
+const endSignShow = (stop: number) => smoothstep(LAST_BILLBOARD_SECTION - 0.35, LAST_BILLBOARD_SECTION - 0.05, stop);
+
 export function Hatirjheel() {
   return (
     <group>
       <Water />
       <Bridge />
-      <Suspense fallback={null}>
-        <Gantry />
-      </Suspense>
+      <ScrollFade show={gantryShow}>
+        <Suspense fallback={null}>
+          <Gantry />
+        </Suspense>
+      </ScrollFade>
       {BILLBOARDS.map((b) => (
         <Billboard key={b.project.slug} spec={b} />
       ))}
-      <AllProjectsSign />
+      <ScrollFade show={endSignShow}>
+        <AllProjectsSign />
+      </ScrollFade>
     </group>
   );
 }

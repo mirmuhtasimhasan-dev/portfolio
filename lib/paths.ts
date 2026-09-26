@@ -2,6 +2,7 @@ import { CatmullRomCurve3, Vector3 } from "three";
 import { SECTION_COUNT, projectSectionId, sectionIndex } from "./sections";
 import { BILLBOARDS, BRIDGE_EYE, BRIDGE_TO, GANTRY_A, GANTRY_EYE } from "./bridge";
 import { SANGSAD_POSITION, roadFrame } from "./road";
+import { ROOF_ROW, roofCamera, roofRowCenter } from "./roofRow";
 
 export {
   ROAD_HALF_WIDTH,
@@ -41,8 +42,11 @@ const KEYS: Key[] = [
   // 4 Toolset, Backend gali: past the shop boards, the row of tall signs ahead.
   { stop: sectionIndex("gali"), pos: roadFrame(0.502, 0, EYE), look: roadFrame(0.545, 0, EYE + 1) },
   // 5 Toolset, Server roof: further on, looking up at the rooftop line ahead.
-  { stop: sectionIndex("roof"), pos: roadFrame(0.528, 0, EYE), look: roadFrame(0.59, 0, 12) },
-  { pos: roadFrame(0.565, 0, EYE + 1.5), look: roadFrame(0.66, 0, 5) },
+  // Down the gali on the road center, then the roof hold
+  // (past the gali, so its signs are behind the camera; looking up at the row).
+  { pos: roadFrame(0.53, 0, EYE), look: roadFrame(0.575, 0, EYE + 2) },
+  { pos: roadFrame(0.563, 0, EYE), look: roadFrame(0.61, 0, EYE + 5) },
+  { stop: sectionIndex("roof"), pos: roofCamera(), look: roofRowCenter().setY(ROOF_ROW.y - 2.5) },
   // Projects: the gantry over the road, just before the bridge.
   { stop: sectionIndex("projects"), pos: roadFrame(GANTRY_A - 0.034, 0, GANTRY_EYE), look: roadFrame(GANTRY_A, 0, 9.6) },
   // One hold per billboard, looking at it; waypoints between follow the road.
