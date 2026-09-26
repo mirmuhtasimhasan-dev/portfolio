@@ -16,7 +16,7 @@ import { getDhakaHouse } from "@/lib/dhakaHouse";
 import { mulberry32 } from "@/lib/random";
 import { palette } from "@/lib/palette";
 import { scrollStore } from "@/lib/scrollStore";
-import { ABOUT_TIMING, aboutPhase, cityLit } from "@/lib/timeline";
+import { ABOUT_TIMING, aboutPhase, cityLit, smoothstep } from "@/lib/timeline";
 import { FOG_DENSITY } from "./fog";
 
 /*
@@ -35,6 +35,8 @@ const vertexShader = /* glsl */ `
   attribute float aKeepNear;
   uniform float uLit;
   uniform float uPhase;
+  uniform float uActive;
+  uniform float uTime;
   varying float vOn;
   varying float vDist;
   varying float vSeed;
@@ -52,7 +54,29 @@ const vertexShader = /* glsl */ `
     vec2 q = position.xy * aSize * shrink;
     vec3 p = vec3(q.x * c, q.y, -q.x * s);
     vec4 mv = modelViewMatrix * vec4(aOffset + p, 1.0);
-    vOn = uLit * nearFade * (1.0 - smoothstep(aOffAt, aOffAt + 0.012, uPhase));
+    // The About sequence (lit city, then switch-off), exactly as scrolled.
+    float about = uLit * (1.0 - smoothstep(aOffAt, aOffAt + 0.012, uPhase));
+
+    // Outside the About sequence: a few city windows stay lit (never the
+    // About house). A handful of those switch now and then or flicker.
+    float h1 = fract(sin(dot(aOffset.xz, vec2(12.9898, 78.233))) * 43758.5453);
+    float h2 = fract(sin(dot(aOffset.xz, vec2(39.3468, 11.1353))) * 24634.6345);
+    float ambient = step(h1, 0.13) * (1.0 - aKeepNear);
+    float live = 1.0;
+    if (h2 < 0.1) {
+      // Someone switching a light: toggles every few seconds.
+      float period = 3.0 + 6.0 * h1 / 0.13;
+      float slot = floor(uTime / period + h2 * 37.0);
+      live = step(0.3, fract(sin(slot * 91.345 + h2 * 311.7) * 43758.5453));
+    } else if (h2 < 0.16) {
+      // A failing tube: steady, with a short burst of flicker now and then.
+      float burst = step(fract(uTime / (5.0 + 9.0 * h2) + h2 * 7.0), 0.07);
+      live = 1.0 - burst * step(0.5, fract(uTime * 17.0 + h2 * 5.0));
+    }
+    // Ambient lights are dimmer than the lockdown moment (under the bloom
+    // threshold) and never large: they fade out closer than about 70 m.
+    float ambientNear = smoothstep(50.0, 90.0, d);
+    vOn = max(ambient * live * (1.0 - uActive) * 0.5 * ambientNear, nearFade * about);
     vDist = d;
     vSeed = aSeed;
     gl_Position = projectionMatrix * mv;
@@ -136,6 +160,8 @@ export function CityWindows() {
         uFogDensity: { value: FOG_DENSITY },
         uLit: { value: 0 },
         uPhase: { value: -1 },
+        uActive: { value: 0 },
+        uTime: { value: 0 },
       },
       transparent: true,
       depthWrite: false,
@@ -152,16 +178,16 @@ export function CityWindows() {
     [geometry, material]
   );
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     const m = mesh.current;
     if (!m) return;
     const p = aboutPhase(scrollStore.progress);
-    const lit = cityLit(p);
     const u = (m.material as ShaderMaterial).uniforms;
-    u.uLit.value = lit;
+    u.uLit.value = cityLit(p);
     u.uPhase.value = p;
-    // Skip the draw entirely when no window is on.
-    m.visible = lit > 0.001 && p < ABOUT_TIMING.offTo + 0.02;
+    // The About sequence owns every window while it plays: no flicker there.
+    u.uActive.value = smoothstep(-1, -0.75, p) * (1 - smoothstep(1.1, 1.35, p));
+    u.uTime.value = clock.elapsedTime;
   });
 
   return <mesh ref={mesh} geometry={geometry} material={material} frustumCulled={false} />;

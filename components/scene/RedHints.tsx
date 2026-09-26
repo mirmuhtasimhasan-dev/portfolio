@@ -330,11 +330,132 @@ function HorizonGlow() {
   );
 }
 
+/* ---------------- Rickshaws ---------------- */
+
+const RICKSHAWS = 16;
+const RICKSHAW_LANE = 4.1; // near the kerb, both directions
+const R_FRONT_Y = 0.95;
+const R_TAIL_Y = 0.62;
+const R_LEN = 1.9; // front lamp to tail lamp
+const R_TRAIL = 2.4;
+const WARM = new Color(palette.window);
+
+/**
+ * Cycle rickshaws: slower and lower than cars, in both lanes. Each has a small
+ * warm front lamp and a red tail lamp, both leaving a short light trail.
+ * Left lane rides away from the camera, right lane toward it (Dhaka drives on
+ * the left).
+ */
+function Rickshaws() {
+  const lines = useRef<LineSegments>(null);
+  const points = useRef<Points>(null);
+  const dot = useRadialTexture(DOT_STOPS);
+
+  const riders = useMemo(() => {
+    const r = mulberry32(1905);
+    return Array.from({ length: RICKSHAWS }, (_, i) => ({
+      a0: r(),
+      dir: (i % 2 === 0 ? 1 : -1) as 1 | -1,
+      speed: 2.6 + r() * 1.8, // m/s
+      bob: r() * 10,
+    }));
+  }, []);
+
+  // Per rickshaw: two trail segments (front, tail) and two lamps.
+  const { lineGeo, pointGeo } = useMemo(() => {
+    const mk = (n: number) => {
+      const g = new BufferGeometry();
+      const p = new BufferAttribute(new Float32Array(n * 3), 3);
+      const c = new BufferAttribute(new Float32Array(n * 3), 3);
+      p.setUsage(DynamicDrawUsage);
+      c.setUsage(DynamicDrawUsage);
+      g.setAttribute("position", p);
+      g.setAttribute("color", c);
+      return g;
+    };
+    return { lineGeo: mk(RICKSHAWS * 4), pointGeo: mk(RICKSHAWS * 2) };
+  }, []);
+  useLayoutEffect(
+    () => () => {
+      lineGeo.dispose();
+      pointGeo.dispose();
+    },
+    [lineGeo, pointGeo]
+  );
+
+  useFrame(({ clock, camera }) => {
+    const L = lines.current;
+    const P = points.current;
+    if (!L || !P) return;
+    const gate = redGate(scrollStore.progress);
+    const visible = gate > 0.001;
+    L.visible = visible;
+    P.visible = visible;
+    if (!visible) return;
+
+    const t = clock.elapsedTime;
+    const lp = L.geometry.attributes.position.array as Float32Array;
+    const lc = L.geometry.attributes.color.array as Float32Array;
+    const pp = P.geometry.attributes.position.array as Float32Array;
+    const pc = P.geometry.attributes.color.array as Float32Array;
+    const len = R_LEN / ROAD_LENGTH;
+    const trail = R_TRAIL / ROAD_LENGTH;
+
+    riders.forEach((rk, i) => {
+      // Position of the front lamp along the road, moving in its direction.
+      const u = (((rk.a0 + (rk.dir * rk.speed * t) / ROAD_LENGTH) % 1) + 1) % 1;
+      const aFront = u;
+      const aTail = u - rk.dir * len;
+      const lat = rk.dir > 0 ? -RICKSHAW_LANE : RICKSHAW_LANE;
+      const bob = 0.03 * Math.sin(t * 5 + rk.bob);
+      const front = roadFrame(Math.min(1, Math.max(0, aFront)), lat, R_FRONT_Y + bob);
+      const tail = roadFrame(Math.min(1, Math.max(0, aTail)), lat, R_TAIL_Y + bob);
+      const frontTrail = roadFrame(Math.min(1, Math.max(0, aFront - rk.dir * trail)), lat, R_FRONT_Y + bob);
+      const tailTrail = roadFrame(Math.min(1, Math.max(0, aTail - rk.dir * trail)), lat, R_TAIL_Y + bob);
+      const ends = Math.min(1, u / 0.03) * Math.min(1, (1 - u) / 0.04);
+      const near = (p: Vector3) => smoothstep(14, 30, p.distanceTo(camera.position));
+      const kf = gate * ends * near(front) * 0.8;
+      const kt = gate * ends * near(tail) * 0.7;
+      lp.set([front.x, front.y, front.z, frontTrail.x, frontTrail.y, frontTrail.z], i * 12);
+      lc.set([WARM.r * kf, WARM.g * kf, WARM.b * kf, 0, 0, 0], i * 12);
+      lp.set([tail.x, tail.y, tail.z, tailTrail.x, tailTrail.y, tailTrail.z], i * 12 + 6);
+      lc.set([RED.r * kt, RED.g * kt, RED.b * kt, 0, 0, 0], i * 12 + 6);
+      pp.set([front.x, front.y, front.z, tail.x, tail.y, tail.z], i * 6);
+      pc.set([WARM.r * kf, WARM.g * kf, WARM.b * kf, RED.r * kt, RED.g * kt, RED.b * kt], i * 6);
+    });
+    L.geometry.attributes.position.needsUpdate = true;
+    L.geometry.attributes.color.needsUpdate = true;
+    P.geometry.attributes.position.needsUpdate = true;
+    P.geometry.attributes.color.needsUpdate = true;
+  });
+
+  return (
+    <>
+      <lineSegments ref={lines} geometry={lineGeo} frustumCulled={false}>
+        <lineBasicMaterial vertexColors transparent blending={AdditiveBlending} depthWrite={false} fog />
+      </lineSegments>
+      <points ref={points} geometry={pointGeo} frustumCulled={false}>
+        <pointsMaterial
+          vertexColors
+          map={dot}
+          size={0.32}
+          sizeAttenuation
+          transparent
+          blending={AdditiveBlending}
+          depthWrite={false}
+          fog
+        />
+      </points>
+    </>
+  );
+}
+
 export function RedHints() {
   return (
     <>
       <HorizonGlow />
       <TailLights />
+      <Rickshaws />
       <TrafficSignal />
     </>
   );

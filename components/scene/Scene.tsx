@@ -2,6 +2,10 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
+import { Bloom, EffectComposer } from "@react-three/postprocessing";
+import { getQuality } from "@/lib/quality";
+import { Rain } from "./Rain";
+import { RoadSheen } from "./WetRoad";
 import { palette } from "@/lib/palette";
 import { City } from "./City";
 import { Road } from "./Road";
@@ -20,6 +24,8 @@ type Props = {
 export default function Scene({ onCut }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(true);
+  // Client only (the canvas is loaded with ssr: false), so this is safe here.
+  const [quality] = useState(getQuality);
 
   // Pause rendering when the tab is hidden or the canvas is off screen.
   useEffect(() => {
@@ -56,6 +62,8 @@ export default function Scene({ onCut }: Props) {
         <fogExp2 attach="fog" args={[palette.bgNight, FOG_DENSITY]} />
         <City />
         <Road />
+        <RoadSheen />
+        <Rain count={quality.rain} />
         <ContentBuildings />
         <CityWindows />
         <RedHints />
@@ -65,6 +73,13 @@ export default function Scene({ onCut }: Props) {
         </Suspense>
         <Hatirjheel />
         <CameraRig onCut={onCut} />
+        {quality.bloom && (
+          // Only bright things cross the threshold: neon, lamps, lit windows,
+          // screenshots. Line-base building edges stay dim and unbloomed.
+          <EffectComposer multisampling={4}>
+            <Bloom mipmapBlur luminanceThreshold={0.34} luminanceSmoothing={0.18} intensity={0.85} radius={0.62} />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );

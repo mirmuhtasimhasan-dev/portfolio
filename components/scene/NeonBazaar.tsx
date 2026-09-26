@@ -14,6 +14,7 @@ import {
   Line as ThreeLine,
   LineBasicMaterial,
   type Mesh,
+  type MeshBasicMaterial,
   type Sprite,
   type SpriteMaterial,
 } from "three";
@@ -27,6 +28,7 @@ import { palette } from "@/lib/palette";
 import { roadFrame } from "@/lib/paths";
 import { scrollStore } from "@/lib/scrollStore";
 import { tick } from "@/lib/sound";
+import { WetReflection } from "./WetRoad";
 import { SIGN_DIM, SIGN_LEVEL, flickerPattern, inBazaar, smoothstep } from "@/lib/timeline";
 import { sectionPhase } from "@/lib/stopMap";
 import { sectionIndex } from "@/lib/sections";
@@ -78,6 +80,7 @@ const rectPoints = (w: number, h: number): [number, number, number][] => [
 function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
   const { tool, width: w, height: h, layout } = spec;
   const tube = useRef<FatLine>(null);
+  const reflection = useRef<MeshBasicMaterial>(null);
   const glow = useRef<FatLine>(null);
   const text = useRef<TroikaText>(null);
   const frame = useRef<FatLine>(null);
@@ -157,6 +160,12 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     const b = (SIGN_DIM + (lit - SIGN_DIM) * s.x) * k;
     const tm = tube.current?.material;
     if (tm) tm.opacity = b;
+    // The wet road below mirrors the sign, following its flicker and dimming.
+    // Near the camera a mirrored board would read as a slab: fade it out there.
+    if (reflection.current) {
+      const far = smoothstep(22, 40, spec.position.distanceTo(camera.position));
+      reflection.current.opacity = 0.06 * b * s.x * far;
+    }
     const gm = glow.current?.material;
     if (gm) gm.opacity = (0.22 * s.x * lit + (hovered ? 0.12 : 0)) * k;
     const fm = frame.current?.material;
@@ -218,6 +227,9 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
       <lineSegments geometry={structure}>
         <lineBasicMaterial color={palette.lineBase} fog />
       </lineSegments>
+      {spec.zone !== "server" && (
+        <WetReflection ref={reflection} position={spec.position} yaw={spec.yaw} width={w} height={h} />
+      )}
       <group position={spec.position} rotation-y={spec.yaw}>
         {/* Dark backing: keeps city lines out of the sign, and is the hit area. */}
         <mesh onPointerOver={over} onPointerOut={out} onClick={click}>

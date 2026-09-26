@@ -37,6 +37,7 @@ import { scrollToSection } from "@/lib/scrollNav";
 import { projectSectionId, sectionIndex } from "@/lib/sections";
 import { smoothstep } from "@/lib/timeline";
 import { scrollStore } from "@/lib/scrollStore";
+import { WetReflection } from "./WetRoad";
 
 const FONT = "/fonts/geist-mono-600.woff";
 const GREEN = new Color(palette.green);
@@ -381,6 +382,8 @@ function Gantry() {
 
   return (
     <group>
+      {/* The gantry sign mirrored on the wet road below it. */}
+      <WetReflection position={center} yaw={yaw} width={GANTRY_W} height={h} opacity={0.1} />
       <lineSegments geometry={frame}>
         <lineBasicMaterial color={palette.lineBase} fog />
       </lineSegments>
@@ -465,8 +468,9 @@ function Screenshot({ spec }: { spec: BillboardSpec }) {
   return (
     <mesh position={[0, strip / 2, 0.015]}>
       <planeGeometry args={[w - 0.3, h - strip - 0.3]} />
-      {/* Slightly dimmed so a bright site does not glare in the night scene. */}
-      <meshBasicMaterial map={tex} color="#cfcfcf" toneMapped={false} fog />
+      {/* Dimmed to just under the bloom threshold: a bright site never glares
+          or blooms, while the green frame around it glows softly. */}
+      <meshBasicMaterial map={tex} color="#969696" toneMapped={false} fog />
     </mesh>
   );
 }
