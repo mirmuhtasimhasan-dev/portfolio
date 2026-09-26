@@ -20,7 +20,10 @@ import {
 } from "three";
 import type { Line2, LineSegments2 } from "three-stdlib";
 import { CABLE, buildCable, getBazaar, type SignSpec } from "@/lib/bazaar";
-import { BILLBOARDS } from "@/lib/bridge";
+import { BILLBOARDS, BRIDGE_FROM } from "@/lib/bridge";
+
+/** Height the pulse runs at along the bridge deck. */
+const DECK_Y = 0.25;
 import { bazaarStore } from "@/lib/bazaarStore";
 import { toolTipEls } from "@/lib/labelStore";
 import { logoSegments } from "@/lib/logoLines";
@@ -347,15 +350,22 @@ function CableAndPulse({ signs }: { signs: SignSpec[] }) {
         const used = featuredUsing(req.tool).map((p) => p.slug);
         const targets = BILLBOARDS.filter((b) => used.includes(b.project.slug));
         const last = targets[targets.length - 1];
-        const endIdx = last ? nearestIndex(cable.points, roadFrame(last.a, CABLE.lateral, 0)) : cable.points.length - 1;
-        const along = cable.points.slice(start, Math.max(start + 1, endIdx + 1));
+        // The cable ends before the bridge; over the water the pulse runs
+        // along the deck's center line, then climbs to the last billboard.
+        const along = cable.points.slice(start);
         const path = [sign.anchor.clone(), up, across, ...along];
-        if (last) path.push(last.anchor.clone());
+        const deck: Vector3[] = [];
+        if (last) {
+          path.push(roadFrame(BRIDGE_FROM, 0, DECK_Y));
+          for (let x = BRIDGE_FROM + 0.004; x < last.a; x += 0.004) deck.push(roadFrame(x, 0, DECK_Y));
+          deck.push(roadFrame(last.a, 0, DECK_Y));
+          path.push(...deck, last.anchor.clone());
+        }
         const cum = [0];
         for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + path[i].distanceTo(path[i - 1]));
-        const base = 3; // sign, up, across
+        const deckStart = path.length - deck.length - 1;
         const stops = targets.map((b) => {
-          const k = b === last ? path.length - 1 : base + nearestIndex(along, roadFrame(b.a, CABLE.lateral, 0));
+          const k = b === last ? path.length - 1 : deckStart + nearestIndex(deck, roadFrame(b.a, 0, DECK_Y));
           return { slug: b.project.slug, at: cum[Math.min(k, cum.length - 1)] };
         });
         bazaarStore.lit = {};

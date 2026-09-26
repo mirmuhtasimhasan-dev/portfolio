@@ -89,18 +89,22 @@ export const floorLight = (q: number, k: number) => {
 export const redGate = (progress: number) => smoothstep(1.15, 1.7, sectionPhase(progress, HERO));
 
 /**
- * Horizon glow: grows a little each section up to the Projects gantry, eases
- * back down over the bridge, then rises to its peak for the Contact sunrise.
+ * Horizon glow: grows a little each section up to the Projects gantry, stays
+ * very faint over the whole bridge, then rises to its peak only on the final
+ * approach to the Contact sunrise.
  */
 export function horizonGlow(progress: number) {
   const s = progressToStop(progress);
   const P = sectionIndex("projects");
   const C = sectionIndex("contact");
   const g = clamp01((s - 0.5) / (P - 0.5));
-  let v = 0.1 + 0.16 * g * g;
-  v -= 0.1 * smoothstep(P, P + 1, s);
-  const t = smoothstep(C - 1, C, s);
-  return redGate(progress) * (v * (1 - t) + 0.6 * t);
+  const street = 0.1 + 0.16 * g * g;
+  // Linear light: 0.008 reads as a faint hint after sRGB encoding (0.03 was
+  // already a clear red band on screen).
+  const bridge = 0.008;
+  let v = street + (bridge - street) * smoothstep(P - 0.6, P + 0.2, s);
+  v += (0.6 - v) * smoothstep(C - 0.6, C, s);
+  return redGate(progress) * v;
 }
 
 /* ---------- Toolset: Neon Bazaar ---------- */

@@ -4,7 +4,7 @@ import { getCity, type Footprint } from "./city";
 import { ROAD_LENGTH, roadCurve, roadFrame, sampleCamera } from "./paths";
 import { ZONE_SECTION, sectionIndex } from "./sections";
 import { ROOF_ROW, roofRowSlots } from "./roofRow";
-import { BRIDGE_FROM, BRIDGE_TO, GANTRY_A } from "./bridge";
+import { GANTRY_A } from "./bridge";
 
 /*
  * The Neon Bazaar layout. Every sign is placed by a small solver so that,
@@ -351,15 +351,19 @@ export function getBazaar(width = 1440, height = 900) {
 
 /* ---------------- Neon cable beside the road ---------------- */
 
-export const CABLE = { lateral: -9.2, from: 0.43, to: BRIDGE_TO - 0.006, height: 7.2, bridgeHeight: 11, sag: 0.55, span: 14 };
+/**
+ * The cable runs along the left side of the bazaar street and ends at the
+ * gantry, before the bridge: over the water any line along the road would
+ * converge into the billboards at their holds. The pulse continues along the
+ * bridge deck (see NeonBazaar).
+ */
+export const CABLE = { lateral: -9.2, from: 0.43, to: GANTRY_A - 0.006, height: 7.2, sag: 0.55, span: 14 };
+const cableHeight = () => CABLE.height;
+const cableSag = () => CABLE.sag;
+/** Where the cable runs at road fraction a. */
+export const cableAt = (a: number, y?: number) => roadFrame(a, CABLE.lateral, y ?? cableHeight());
 
-/** Cable height: street height through the bazaar, above the billboards on the bridge. */
-const cableHeight = (a: number) => {
-  const t = Math.min(1, Math.max(0, (a - (GANTRY_A - 0.012)) / (BRIDGE_FROM - GANTRY_A + 0.012)));
-  return CABLE.height + (CABLE.bridgeHeight - CABLE.height) * t * t * (3 - 2 * t);
-};
-
-/** Overhead cable along the left side of the road to the end of the bridge, sagging between poles. */
+/** Overhead cable along the left side of the street, sagging between poles. */
 export function buildCable() {
   const pts: Vector3[] = [];
   const poles: Vector3[] = [];
@@ -368,14 +372,14 @@ export function buildCable() {
   const per = 10;
   for (let i = 0; i <= spans; i++) {
     const a = CABLE.from + ((CABLE.to - CABLE.from) * i) / spans;
-    poles.push(roadFrame(a, CABLE.lateral, cableHeight(a)));
+    poles.push(cableAt(a));
     if (i === spans) break;
     for (let k = 0; k < per; k++) {
       const t = k / per;
       const aa = a + ((CABLE.to - CABLE.from) / spans) * t;
-      pts.push(roadFrame(aa, CABLE.lateral, cableHeight(aa) - CABLE.sag * 4 * t * (1 - t)));
+      pts.push(cableAt(aa, cableHeight() - cableSag() * 4 * t * (1 - t)));
     }
   }
-  pts.push(roadFrame(CABLE.to, CABLE.lateral, cableHeight(CABLE.to)));
+  pts.push(cableAt(CABLE.to));
   return { points: pts, poles };
 }
