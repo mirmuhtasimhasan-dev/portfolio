@@ -240,6 +240,7 @@ const HEAD_H = 1.1;
 const GANTRY_W = 10;
 const GANTRY_TOP = 12.2;
 const GANTRY_POST = 10.6;
+const EXIT_TAB = { w: 2.3, h: 0.7 };
 
 const roadSamples = Array.from({ length: 2001 }, (_, i) => roadCurve.getPointAt(i / 2000));
 
@@ -347,7 +348,8 @@ function Gantry() {
 
   const frame = useLineGeometry(() => {
     const arr: number[] = [];
-    const beamY = GANTRY_TOP + 0.4;
+    // Beam high enough to clear the exit tab on top of the sign.
+    const beamY = GANTRY_TOP + 1.1;
     for (const s of [-1, 1]) {
       push(arr, roadFrame(GANTRY_A, s * GANTRY_POST, 0), roadFrame(GANTRY_A, s * GANTRY_POST, beamY + 0.9));
       push(arr, roadFrame(GANTRY_A + 0.6 / ROAD_LENGTH, s * GANTRY_POST, 0), roadFrame(GANTRY_A + 0.6 / ROAD_LENGTH, s * GANTRY_POST, beamY + 0.9));
@@ -361,7 +363,8 @@ function Gantry() {
       push(arr, roadFrame(GANTRY_A, l0, i % 2 ? beamY : beamY + 0.9), roadFrame(GANTRY_A, l1, i % 2 ? beamY + 0.9 : beamY));
     }
     // Hangers from the beam to the board.
-    for (const u of [-GANTRY_W * 0.35, GANTRY_W * 0.35]) push(arr, roadFrame(GANTRY_A, u, beamY), roadFrame(GANTRY_A, u, GANTRY_TOP));
+    // Hangers clear of the exit tab (right corner).
+    for (const u of [-GANTRY_W * 0.3, GANTRY_W * 0.18]) push(arr, roadFrame(GANTRY_A, u, beamY), roadFrame(GANTRY_A, u, GANTRY_TOP));
     return arr;
   });
 
@@ -389,9 +392,32 @@ function Gantry() {
           PROJECTS
         </Text>
         <Arrow dir="up" x={-GANTRY_W / 2 + 4.45} y={headY} size={0.62} color={palette.text} />
-        <Text font={FONT} fontSize={0.5} color={palette.text} anchorX="left" anchorY="middle" position={[-GANTRY_W / 2 + 5.1, headY, 0.03]}>
-          Hatirjheel
+        <Text font={FONT} fontSize={0.44} color={palette.text} anchorX="left" anchorY="middle" position={[-GANTRY_W / 2 + 5.1, headY, 0.03]}>
+          Things I shipped
         </Text>
+        {/* Exit tab on top of the right corner, like a real highway sign. */}
+        <group position={[GANTRY_W / 2 - EXIT_TAB.w / 2, h / 2 + EXIT_TAB.h / 2 - 0.06, -0.005]}>
+          <mesh>
+            <planeGeometry args={[EXIT_TAB.w, EXIT_TAB.h]} />
+            <meshBasicMaterial color={fill} fog />
+          </mesh>
+          <Line
+            points={[
+              [-EXIT_TAB.w / 2 + 0.12, -EXIT_TAB.h / 2 + 0.06, 0.02],
+              [-EXIT_TAB.w / 2 + 0.12, EXIT_TAB.h / 2 - 0.12, 0.02],
+              [-EXIT_TAB.w / 2 + 0.12, EXIT_TAB.h / 2 - 0.12, 0.02],
+              [EXIT_TAB.w / 2 - 0.12, EXIT_TAB.h / 2 - 0.12, 0.02],
+              [EXIT_TAB.w / 2 - 0.12, EXIT_TAB.h / 2 - 0.12, 0.02],
+              [EXIT_TAB.w / 2 - 0.12, -EXIT_TAB.h / 2 + 0.06, 0.02],
+            ]}
+            segments
+            lineWidth={2}
+            color={palette.text}
+          />
+          <Text font={FONT} fontSize={0.34} letterSpacing={0.08} color={palette.text} anchorX="center" anchorY="middle" position={[0, 0.0, 0.03]}>
+            EXIT 05
+          </Text>
+        </group>
         <Line points={[[-GANTRY_W / 2 + 0.4, headY - HEAD_H / 2 + 0.05, 0.03], [GANTRY_W / 2 - 0.4, headY - HEAD_H / 2 + 0.05, 0.03]]} lineWidth={1} color={palette.text} transparent opacity={0.4} />
         {BILLBOARDS.map((b, i) => (
           <GantryRow key={b.project.slug} spec={b} y={rowY(i)} />
