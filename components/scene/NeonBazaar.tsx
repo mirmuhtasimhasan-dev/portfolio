@@ -174,23 +174,34 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     bazaarStore.pulseRequest = { tool: tool.name, at: performance.now() };
   };
 
-  // Geist Mono advance is ~0.6 em: shrink long names so they always fit the board.
-  const fit = (size: number, room: number) => Math.min(size, room / (tool.name.length * 0.62));
+  // The room the name gets: the board minus the icon and padding.
+  // Row: from just right of the icon to the right edge. Column: from the
+  // bottom edge up to just below the icon (text runs bottom to top).
+  const PAD = 0.14;
+  const iconEnd = layout === "row" ? -w / 2 + h * 0.5 + h * 0.33 : h / 2 - w * 0.55 - w * 0.35;
+  const room = layout === "row" ? w / 2 - PAD - (iconEnd + PAD) : iconEnd - PAD - (-h / 2 + PAD);
   const textProps =
     layout === "row"
       ? {
-          position: [-w / 2 + h * 1.02, 0, 0.02] as [number, number, number],
-          fontSize: fit(h * 0.34, w - h * 1.15 - 0.1),
+          position: [iconEnd + PAD, 0, 0.02] as [number, number, number],
+          fontSize: h * 0.34,
           anchorX: "left" as const,
           whiteSpace: "nowrap" as const,
         }
       : {
-          position: [0, -w / 2 + 0.05, 0.02] as [number, number, number],
+          position: [0, (iconEnd - PAD + (-h / 2 + PAD)) / 2, 0.02] as [number, number, number],
           rotation: [0, 0, Math.PI / 2] as [number, number, number],
-          fontSize: fit(w * 0.34, h - w - 0.3),
+          fontSize: w * 0.34,
           anchorX: "center" as const,
           whiteSpace: "nowrap" as const,
         };
+  // After layout, measure the real text width and scale it down to fit.
+  const fitText = (t: Mesh) => {
+    const info = (t as unknown as { textRenderInfo?: { blockBounds: number[] } }).textRenderInfo;
+    if (!info) return;
+    const [x0, , x1] = info.blockBounds;
+    t.scale.setScalar(Math.min(1, room / Math.max(1e-6, x1 - x0)));
+  };
 
   return (
     <group>
@@ -223,6 +234,7 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
           anchorY="middle"
           fillOpacity={0.3}
           letterSpacing={0.02}
+          onSync={fitText}
           {...textProps}
         >
           {tool.name}

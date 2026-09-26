@@ -52,15 +52,20 @@ export type SignSpec = {
 type Zone = Tool["zone"];
 
 const BOARD: Record<Zone, { w: number; h: number; y: number }> = {
-  frontend: { w: 2.9, h: 1.1, y: 3.2 },
+  frontend: { w: 2.7, h: 1.0, y: 3.2 },
   backend: { w: 1.2, h: 3.3, y: 6.4 },
   // y is the one line height for the whole roof row (board center).
   server: { w: 4.4, h: 1.4, y: 18.2 },
 };
 
+/** Frontend street shop boards: lower and upper floor rows (board centers, m). */
+const FRONTEND_ROWS = [3.0,4.4,5.8,7.2];
+/** Largest to smallest on-screen board height in the Frontend street. */
+const MAX_SIZE_RATIO = 1.5;
+
 /** Where each zone may start along the road, and which side(s) it uses. */
 const ZONE_RULES: Record<Zone, { from: number; to: number; sides: (1 | -1)[] }> = {
-  frontend: { from: 0.43, to: 0.512, sides: [-1, 1] },
+  frontend: { from: 0.456, to: 0.512, sides: [-1, 1] },
   backend: { from: 0.512, to: 0.588, sides: [1] },
   server: { from: 0.55, to: 0.628, sides: [-1] },
 };
@@ -164,15 +169,24 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
     const rule = ZONE_RULES[zone];
     const hold = holdOf(zone);
     const camPos = hold.cam.position;
-    const nextA: Record<number, number> = { [1]: rule.from, [-1]: rule.from };
     const zoneTools = tools.filter((t) => t.zone === zone);
+    // Frontend street: two rows of shop boards (lower and upper floor).
+    const rows = zone === "frontend" ? FRONTEND_ROWS : [b.y];
+    const nextA = new Map<string, number>();
+    const startA = (side: number, y: number) => nextA.get(`${side}:${y}`) ?? rule.from;
+    // Frontend: keep every board's on-screen height within MAX_SIZE_RATIO.
+    let minH = Infinity;
+    let maxH = 0;
+    const edge = zone === "frontend" ? width * 0.05 : EDGE;
 
     zoneTools.forEach((tool, i) => {
       // Preferred side alternates; if that side is full, try the other one.
       const preferred = rule.sides[i % rule.sides.length];
       const order = [preferred, ...rule.sides.filter((x) => x !== preferred)];
       for (const side of order)
-      for (let a = nextA[side]; a <= rule.to; a += SEARCH_STEP) {
+      for (let a = Math.min(...rows.map((y) => startA(side, y))); a <= rule.to; a += SEARCH_STEP)
+      for (const rowY of rows) {
+        if (a < startA(side, rowY)) continue;
         // Server roof: needs a low-enough frontage roof under the board.
         let roof: Footprint | undefined;
         if (zone === "server") {
@@ -180,7 +194,7 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
           if (!roof || roof.roof > b.y - b.h / 2 - 1) continue;
         }
         const lateralMin = zone === "server" && roof ? roof.frontage!.facade + 0.6 : 0;
-        let { position, yaw } = pose(a, side, b.y, b.w, camPos);
+        let { position, yaw } = pose(a, side, rowY, b.w, camPos);
         if (lateralMin) {
           // Sit on the roof's road edge rather than out over the street.
           position = roadFrame(a, side * Math.max(lateralMin + b.w / 2, SIGN_CLEARANCE + b.w / 2), b.y);
@@ -190,7 +204,9 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
         const own = rects[holds.indexOf(hold)];
         if (!own) continue;
         // Fully in frame at its own hold, clear of the text there.
-        if (own.x0 < EDGE || own.x1 > width - EDGE || own.y0 < NAV_H + 4 || own.y1 > height - EDGE) continue;
+        if (own.x0 < edge || own.x1 > width - edge || own.y0 < NAV_H + 4 || own.y1 > height - EDGE) continue;
+        const hPx = own.y1 - own.y0;
+        if (zone === "frontend" && Math.max(maxH, hPx) / Math.min(minH, hPx) > MAX_SIZE_RATIO) continue;
         if (hold.texts.some((r) => overlaps(own, r, 8))) continue;
         // At each hold, the signs of that hold's zone overlap nothing:
         // here that means this sign clears every placed sign at its own hold,
@@ -215,7 +231,7 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
         );
         if (textClash) continue;
 
-        const top = position.clone().setY(b.y + b.h / 2);
+        const top = position.clone().setY(rowY + b.h / 2);
         const structure: number[] = [];
         if (zone === "server" && roof) {
           const c = Math.cos(yaw);
@@ -223,12 +239,12 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
           for (const u of [-b.w * 0.35, b.w * 0.35]) {
             const x = position.x + u * c;
             const z = position.z - u * s;
-            structure.push(x, roof.roof, z, x, b.y - b.h / 2, z);
+            structure.push(x, roof.roof, z, x, rowY - b.h / 2, z);
           }
         } else {
           // Bracket from the top of the board back to the facade behind it.
           const fp = frontageAt(a, side);
-          const facade = roadFrame(a, side * (fp ? fp.frontage!.facade : SIGN_CLEARANCE + b.w + 0.5), b.y + b.h / 2);
+          const facade = roadFrame(a, side * (fp ? fp.frontage!.facade : SIGN_CLEARANCE + b.w + 0.5), rowY + b.h / 2);
           structure.push(top.x, top.y, top.z, facade.x, facade.y, facade.z);
         }
         placed.push({
@@ -248,7 +264,9 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
           },
           rects,
         });
-        nextA[side] = a + SEARCH_STEP;
+        nextA.set(`${side}:${rowY}`, a + SEARCH_STEP);
+        minH = Math.min(minH, hPx);
+        maxH = Math.max(maxH, hPx);
         return;
       }
       if (process.env.NODE_ENV !== "production") console.warn(`[bazaar] no room for ${tool.name} in ${zone}`);
