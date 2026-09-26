@@ -10,7 +10,8 @@ import { BRIDGE_FROM, BRIDGE_TO, GANTRY_A } from "./bridge";
  * seen from each Toolset hold at the actual viewport size:
  *   - the signs of that hold's zone are fully in frame, clear of the nav and
  *     the hold's title or caption,
- *   - at each hold, no sign of that hold's zone overlaps any other sign,
+ *   - at each hold, no sign of that hold's zone overlaps any other sign in
+ *     front of it (a dimmed sign of another zone may stand hidden behind one),
  *   - every sign's inner edge stays SIGN_CLEARANCE from the road center.
  * Zone rules:
  *   Frontend street: shop boards alternating across both sides, like a market.
@@ -51,22 +52,22 @@ export type SignSpec = {
 type Zone = Tool["zone"];
 
 const BOARD: Record<Zone, { w: number; h: number; y: number }> = {
-  frontend: { w: 3.4, h: 1.25, y: 4.6 },
-  backend: { w: 1.3, h: 3.6, y: 5.1 },
+  frontend: { w: 2.9, h: 1.1, y: 3.2 },
+  backend: { w: 1.2, h: 3.3, y: 6.4 },
   // y is the one line height for the whole roof row (board center).
   server: { w: 4.4, h: 1.4, y: 18.2 },
 };
 
 /** Where each zone may start along the road, and which side(s) it uses. */
 const ZONE_RULES: Record<Zone, { from: number; to: number; sides: (1 | -1)[] }> = {
-  frontend: { from: 0.43, to: 0.5, sides: [-1, 1] },
-  backend: { from: 0.5, to: 0.555, sides: [1] },
-  server: { from: 0.535, to: 0.615, sides: [-1] },
+  frontend: { from: 0.43, to: 0.512, sides: [-1, 1] },
+  backend: { from: 0.512, to: 0.588, sides: [1] },
+  server: { from: 0.55, to: 0.628, sides: [-1] },
 };
 
 const SEARCH_STEP = 0.0004;
 /** Screen gaps, in CSS pixels. */
-const GAP = 14;
+const GAP = 10;
 const EDGE = 28;
 const NAV_H = 76;
 
@@ -167,7 +168,10 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
     const zoneTools = tools.filter((t) => t.zone === zone);
 
     zoneTools.forEach((tool, i) => {
-      const side = rule.sides[i % rule.sides.length];
+      // Preferred side alternates; if that side is full, try the other one.
+      const preferred = rule.sides[i % rule.sides.length];
+      const order = [preferred, ...rule.sides.filter((x) => x !== preferred)];
+      for (const side of order)
       for (let a = nextA[side]; a <= rule.to; a += SEARCH_STEP) {
         // Server roof: needs a low-enough frontage roof under the board.
         let roof: Footprint | undefined;
@@ -196,8 +200,12 @@ export function buildBazaar(width = 1440, height = 900): SignSpec[] {
             const r = rects[k];
             const q = p.rects[k];
             if (!r || !q) return false;
-            const matters = hd === hold || p.spec.zone === hd.zone;
-            return matters && overlaps(r, q, GAP);
+            if (!overlaps(r, q, GAP)) return false;
+            if (hd === hold) return true; // at its own hold: never overlap anything
+            if (p.spec.zone !== hd.zone) return false; // two dimmed signs: fine
+            // At another zone's hold, only allowed if this sign stands behind the
+            // focus sign (farther from that camera): its dark backing hides it.
+            return position.distanceTo(hd.cam.position) <= p.spec.position.distanceTo(hd.cam.position);
           })
         );
         if (clash) continue;

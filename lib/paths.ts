@@ -39,9 +39,9 @@ const KEYS: Key[] = [
   // 3 Toolset, Frontend street: looking down the shop signboards.
   { stop: sectionIndex("toolset"), pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.47, 0, EYE + 1) },
   // 4 Toolset, Backend gali: past the shop boards, the row of tall signs ahead.
-  { stop: sectionIndex("gali"), pos: roadFrame(0.488, 0, EYE), look: roadFrame(0.53, 0, EYE + 1) },
+  { stop: sectionIndex("gali"), pos: roadFrame(0.502, 0, EYE), look: roadFrame(0.545, 0, EYE + 1) },
   // 5 Toolset, Server roof: further on, looking up at the rooftop line ahead.
-  { stop: sectionIndex("roof"), pos: roadFrame(0.515, 0, EYE), look: roadFrame(0.575, 0, 12) },
+  { stop: sectionIndex("roof"), pos: roadFrame(0.528, 0, EYE), look: roadFrame(0.59, 0, 12) },
   { pos: roadFrame(0.565, 0, EYE + 1.5), look: roadFrame(0.66, 0, 5) },
   // Projects: the gantry over the road, just before the bridge.
   { stop: sectionIndex("projects"), pos: roadFrame(GANTRY_A - 0.034, 0, GANTRY_EYE), look: roadFrame(GANTRY_A, 0, 9.6) },

@@ -174,20 +174,22 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     bazaarStore.pulseRequest = { tool: tool.name, at: performance.now() };
   };
 
+  // Geist Mono advance is ~0.6 em: shrink long names so they always fit the board.
+  const fit = (size: number, room: number) => Math.min(size, room / (tool.name.length * 0.62));
   const textProps =
     layout === "row"
       ? {
           position: [-w / 2 + h * 1.02, 0, 0.02] as [number, number, number],
-          fontSize: h * 0.34,
+          fontSize: fit(h * 0.34, w - h * 1.15 - 0.1),
           anchorX: "left" as const,
-          maxWidth: w - h * 1.15,
+          whiteSpace: "nowrap" as const,
         }
       : {
           position: [0, -w / 2 + 0.05, 0.02] as [number, number, number],
           rotation: [0, 0, Math.PI / 2] as [number, number, number],
-          fontSize: w * 0.34,
+          fontSize: fit(w * 0.34, h - w - 0.3),
           anchorX: "center" as const,
-          maxWidth: h - w - 0.2,
+          whiteSpace: "nowrap" as const,
         };
 
   return (
