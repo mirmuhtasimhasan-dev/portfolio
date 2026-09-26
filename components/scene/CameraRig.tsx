@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { Vector3 } from "three";
+import { applyFocus } from "@/lib/cameraFocus";
 import { sampleCamera } from "@/lib/paths";
 import { scrollStore } from "@/lib/scrollStore";
 import { stopToSection } from "@/lib/stopMap";
@@ -86,6 +87,7 @@ export function CameraRig({ onCut }: Props) {
     st.cutStop = -1;
 
     sampleCamera(s, st.targetPos, st.targetLook);
+    applyFocus(scrollStore.progress, st.targetPos, st.targetLook);
 
     if (!st.initialized) {
       st.pos.copy(st.targetPos);

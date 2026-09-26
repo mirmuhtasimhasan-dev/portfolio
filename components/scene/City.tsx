@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useMemo } from "react";
 import { BufferAttribute, BufferGeometry, Color, ShaderMaterial } from "three";
-import { generateCity } from "@/lib/city";
+import { getCity } from "@/lib/city";
 import { palette } from "@/lib/palette";
 import { FOG_DENSITY } from "./fog";
 
@@ -46,7 +46,7 @@ const fragmentShader = /* glsl */ `
 
 export function City() {
   const { geometry, material } = useMemo(() => {
-    const { positions, colors, detail } = generateCity();
+    const { positions, colors, detail } = getCity();
     const g = new BufferGeometry();
     g.setAttribute("position", new BufferAttribute(positions, 3));
     g.setAttribute("color", new BufferAttribute(colors, 3));

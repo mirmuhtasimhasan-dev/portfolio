@@ -2,6 +2,7 @@ import { BoxGeometry, Color, EdgesGeometry, Vector3 } from "three";
 import { mulberry32 } from "./random";
 import { palette } from "./palette";
 import { CONTENT_LOTS, FLOOR_HEIGHT, SIDEWALK } from "./contentBuildings";
+import { ABOUT_TIMING } from "./timeline";
 import {
   LAKE_CENTER,
   LAKE_RADIUS,
@@ -36,7 +37,21 @@ export type Footprint = {
   top: number;
 };
 
+/** Window slots for the lit-city moment (instanced quads). */
+export type WindowSlots = {
+  /** xyz per window, on the facade. */
+  offsets: Float32Array;
+  /** Facade normal angle (atan2(nx, nz)). */
+  yaws: Float32Array;
+  /** About-phase at which this window switches off. */
+  offAt: Float32Array;
+  /** 0..1 brightness variation. */
+  seeds: Float32Array;
+  count: number;
+};
+
 export type CityBuffers = {
+  windows: WindowSlots;
   positions: Float32Array;
   colors: Float32Array;
   /** 1 = floor line / rooftop detail (faded out with distance), 0 = main edge. */
@@ -90,6 +105,54 @@ class LineWriter {
       this.col.push(color.r, color.g, color.b);
       this.det.push(detail);
     }
+  }
+}
+
+class WindowWriter {
+  off: number[] = [];
+  yaw: number[] = [];
+  offAt: number[] = [];
+  seed: number[] = [];
+  constructor(private rand: () => number, private offFrom: number, private offTo: number) {}
+
+  /** Windows on all four faces of a box (local X size sx, Z size sz), kept with probability p. */
+  addBox(x: number, z: number, sx: number, sz: number, floors: number, yaw: number, p: number) {
+    const c = Math.cos(yaw);
+    const s = Math.sin(yaw);
+    const faces: [number, number, number][] = [
+      // normal x, normal z, span along the face
+      [1, 0, sz],
+      [-1, 0, sz],
+      [0, 1, sx],
+      [0, -1, sx],
+    ];
+    for (const [nx, nz, span] of faces) {
+      const cols = Math.max(1, Math.floor(span / 3.4));
+      const wyaw = Math.atan2(nx * c + nz * s, -nx * s + nz * c);
+      for (let f = 1; f < floors; f++) {
+        for (let k = 0; k < cols; k++) {
+          if (this.rand() > p) continue;
+          const t = -span / 2 + (span / cols) * (k + 0.5);
+          // Local point on the face, 5 cm out.
+          const lx = nx !== 0 ? nx * (sx / 2 + 0.05) : t;
+          const lz = nz !== 0 ? nz * (sz / 2 + 0.05) : t;
+          this.off.push(x + lx * c + lz * s, f * FLOOR_HEIGHT + 1.6, z - lx * s + lz * c);
+          this.yaw.push(wyaw);
+          this.offAt.push(this.offFrom + (this.offTo - this.offFrom) * this.rand());
+          this.seed.push(this.rand());
+        }
+      }
+    }
+  }
+
+  build(): WindowSlots {
+    return {
+      offsets: new Float32Array(this.off),
+      yaws: new Float32Array(this.yaw),
+      offAt: new Float32Array(this.offAt),
+      seeds: new Float32Array(this.seed),
+      count: this.yaw.length,
+    };
   }
 }
 
@@ -175,8 +238,15 @@ function dhakaFloors(rand: () => number) {
   return 16 + Math.floor(rand() * 11);
 }
 
+// Share of window slots that are lit: dense along the street, sparser inside
+// the city (distance and fog make it read as "most windows" anyway).
+const WINDOW_P_FRONTAGE = 0.55;
+const WINDOW_P_GRID = 0.16;
+
 export function generateCity(seed = 1971): CityBuffers {
   const rand = mulberry32(seed);
+  // Separate stream so windows never change the building layout.
+  const win = new WindowWriter(mulberry32(seed + 1), ABOUT_TIMING.offFrom, ABOUT_TIMING.offTo);
   const w = new LineWriter();
   const samples = buildRoadSamples(700);
   const footprints: Footprint[] = [];
@@ -230,6 +300,7 @@ export function generateCity(seed = 1971): CityBuffers {
       const yaw = Math.atan2(t.x, t.z);
       // local Z runs along the road: width along Z, depth along X.
       footprints.push(addBuilding(w, rand, x, z, depth, width, floors, yaw, true));
+      win.addBox(x, z, depth, width, floors, yaw, WINDOW_P_FRONTAGE);
     }
   }
 
@@ -250,10 +321,12 @@ export function generateCity(seed = 1971): CityBuffers {
       const floors = inHatirjheel(near) ? 1 + Math.floor(rand() * 3) : dhakaFloors(rand);
       const yaw = (rand() - 0.5) * 0.08;
       footprints.push(addBuilding(w, rand, x, z, width, depth, floors, yaw, near.dist < 70));
+      win.addBox(x, z, width, depth, floors, yaw, WINDOW_P_GRID);
     }
   }
 
   return {
+    windows: win.build(),
     positions: new Float32Array(w.pos),
     colors: new Float32Array(w.col),
     detail: new Float32Array(w.det),
@@ -261,3 +334,7 @@ export function generateCity(seed = 1971): CityBuffers {
     buildingCount: footprints.length,
   };
 }
+
+let cached: CityBuffers | null = null;
+/** The city is deterministic; generate it once and share it between components. */
+export const getCity = () => (cached ??= generateCity());

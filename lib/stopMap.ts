@@ -1,22 +1,24 @@
-import { SECTION_COUNT } from "./sections";
+import { SECTIONS, SECTION_COUNT } from "./sections";
 
 /*
  * Stop map: master progress (0..1) -> stop space s (0..SECTION_COUNT-1).
  * Integer s = exactly at a section's camera stop.
  *
  * The scroll range is split into N hold zones and N-1 travel zones.
- * Each hold is ~40% of a section's share of scroll (HOLD_RATIO), during which
- * s only drifts by +-HOLD_DRIFT so the camera is almost still. Travel zones
- * cover the rest with an ease-in-out curve.
+ * Each section owns a share of scroll proportional to its weight (sections.ts).
+ * Its hold is HOLD_RATIO (~40%) of that share, during which s only drifts by
+ * +-HOLD_DRIFT so the camera is almost still. The rest of each share is split
+ * between the travels on either side, which use an ease-in-out curve.
  */
 const N = SECTION_COUNT;
 const HOLD_RATIO = 0.4;
 const HOLD_DRIFT = 0.025;
+const TRAVEL_SIDE = (1 - HOLD_RATIO) / 2;
 
-// N*H + (N-1)*T = 1 and H / (H + T) = HOLD_RATIO
-const unit = 1 / (N * HOLD_RATIO + (N - 1) * (1 - HOLD_RATIO));
-const H = HOLD_RATIO * unit;
-const T = (1 - HOLD_RATIO) * unit;
+const W = SECTIONS.map((sec) => sec.weight);
+const holdLen = W.map((w) => HOLD_RATIO * w);
+const travelLen = W.slice(0, -1).map((w, i) => TRAVEL_SIDE * (w + W[i + 1]));
+const total = holdLen.reduce((a, b) => a + b, 0) + travelLen.reduce((a, b) => a + b, 0);
 
 export type Zone = { kind: "hold" | "travel"; index: number; start: number; end: number };
 
@@ -24,11 +26,13 @@ export const ZONES: Zone[] = [];
 {
   let p = 0;
   for (let i = 0; i < N; i++) {
-    ZONES.push({ kind: "hold", index: i, start: p, end: p + H });
-    p += H;
+    const h = holdLen[i] / total;
+    ZONES.push({ kind: "hold", index: i, start: p, end: p + h });
+    p += h;
     if (i < N - 1) {
-      ZONES.push({ kind: "travel", index: i, start: p, end: p + T });
-      p += T;
+      const t = travelLen[i] / total;
+      ZONES.push({ kind: "travel", index: i, start: p, end: p + t });
+      p += t;
     }
   }
 }
@@ -62,6 +66,12 @@ export function progressToStop(progress: number): number {
 }
 
 const HOLDS = ZONES.filter((z) => z.kind === "hold");
+const TRAVELS = ZONES.filter((z) => z.kind === "travel");
+export { HOLDS };
+
+/** Progress at a given phase (0..1) through section i's hold. */
+export const holdProgress = (i: number, phase: number) =>
+  HOLDS[i].start + (HOLDS[i].end - HOLDS[i].start) * phase;
 
 /**
  * Where master progress is relative to section i, for timing in-scene effects:
@@ -73,11 +83,13 @@ export function sectionPhase(progress: number, i: number): number {
   const hold = HOLDS[i];
   if (progress < hold.start) {
     if (i === 0) return 0;
-    return Math.max(-1, (progress - hold.start) / T);
+    const t = TRAVELS[i - 1];
+    return Math.max(-1, (progress - hold.start) / (t.end - t.start));
   }
-  if (progress <= hold.end) return (progress - hold.start) / H;
+  if (progress <= hold.end) return (progress - hold.start) / (hold.end - hold.start);
   if (i === N - 1) return 1;
-  return Math.min(2, 1 + (progress - hold.end) / T);
+  const t = TRAVELS[i];
+  return Math.min(2, 1 + (progress - hold.end) / (t.end - t.start));
 }
 
 /** Nearest section index for a stop-space value. */

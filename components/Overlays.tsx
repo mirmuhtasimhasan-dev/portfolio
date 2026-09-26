@@ -4,6 +4,7 @@ import { forwardRef, useImperativeHandle, useRef, type ReactNode } from "react";
 import { SECTIONS, type SectionId } from "@/lib/sections";
 import { scrollStore } from "@/lib/scrollStore";
 import { sectionOpacity } from "@/lib/stopMap";
+import { aboutPhase, aboutText } from "@/lib/timeline";
 import { ABOUT, CREDENTIALS, PERSON } from "@/lib/content";
 import { ContactPanel } from "./ContactPanel";
 
@@ -129,9 +130,11 @@ export const Overlays = forwardRef<OverlaysHandle>(function Overlays(_, ref) {
   useImperativeHandle(ref, () => ({
     update() {
       const s = scrollStore.stop;
+      const aboutReveal = aboutText(aboutPhase(scrollStore.progress));
       panels.current.forEach((el, i) => {
         if (!el) return;
-        const o = sectionOpacity(s, i);
+        // About text waits for the lockdown-night sequence to finish.
+        const o = sectionOpacity(s, i) * (SECTIONS[i].id === "about" ? aboutReveal : 1);
         const y = Math.max(-1, Math.min(1, i - s)) * 40;
         el.style.opacity = o.toFixed(3);
         el.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0)`;

@@ -31,9 +31,9 @@ export function Nav() {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const go = (e: React.MouseEvent, index: number) => {
+  const go = (e: React.MouseEvent, index: number, phase?: number) => {
     e.preventDefault();
-    scrollToSection(index);
+    scrollToSection(index, phase);
   };
 
   return (
@@ -57,7 +57,7 @@ export function Nav() {
                   links.current[i] = el;
                 }}
                 href={`#${item.label.toLowerCase()}`}
-                onClick={(e) => go(e, item.target)}
+                onClick={(e) => go(e, item.target, item.phase)}
                 className="text-sm text-text-2 transition-colors hover:text-text aria-[current=location]:text-green"
               >
                 {item.label}

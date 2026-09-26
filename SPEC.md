@@ -22,12 +22,14 @@ Read this file before every phase. Do only the phase you are asked to do.
 | bg-dawn | #10281B | Sky at the contact scene |
 | line-base | #1E2A24 | Normal building edges |
 | green | #22C55E | Main color: name, buttons, road, signs, billboard frames |
-| red | #F43F5E | Rare. Only the rising sun and a few special moments. Never on buttons or body text |
+| red | #F43F5E | Rare accent for moments: tail-light trails, one blinking traffic signal, the horizon glow toward Contact, the About screen cursor, the toolset cable pulse, the rising sun. Never in the hero. Never on buttons or body text |
 | window | #F5E6C8 | Warm window light, not neon |
 | text | #EDEDED | Main text |
 | text-2 | #9AA69F | Secondary text |
 
 Golden rule: 70% dark, 20% building lines, 10% neon.
+
+Line hierarchy: generated buildings are line-base. Bright green only on the road and on buildings that carry section content. Exponential fog fades far lines into the background; floor lines and rooftop details fade out by about 130 m so distant lines never moire.
 
 ## 3. Scroll and camera rules (most important)
 
@@ -37,6 +39,10 @@ The camera moves ONLY by scroll. It never moves on its own (a tiny idle float is
 - One master scroll progress value, 0 to 1, from a tall scroll container (about 900vh on desktop).
 - Camera position and camera look target each follow their own CatmullRomCurve3 (centripetal). No straight line jumps between points.
 - Progress goes through a stop map before sampling the curves. Each section has a hold zone where the camera is almost still (about 40% of that section's scroll range) and eased travel zones between holds.
+- Sections can have different scroll weights. About and Credentials get 1.8x because their holds play scroll-driven sequences; the hold stays about 40% of each section's range.
+- In-scene sequences (windows switching off, floors drawing, typing) are pure functions of master progress, so they reverse exactly. Inside a hold, a small scroll-driven push toward a focus point is allowed (About: 3 m toward the last lit window), added to the sampled target before damping.
+- Camera clearance: at least 8.5 m from any building, balconies included, along the whole path. Street-level camera keys sit on the road center at eye height with the look target at eye level. Geometry closer than 2 m to the camera is never drawn (near plane).
+- Each section's text sits on a dark scrim in the emptiest part of its frame. No lines cross text.
 - Every frame, damp the camera position and the look target separately toward their sampled points (maath easing.damp3). Never set lookAt to a jumping target.
 - No camera roll. Limit turn speed so nothing feels sudden.
 - Scrolling up reverses the path exactly.
@@ -47,12 +53,16 @@ The camera moves ONLY by scroll. It never moves on its own (a tiny idle float is
 
 ## 4. Sections and camera stops
 
-1. Hero: night Dhaka from the sky. "Hi. I'm Muhtasim." floats in the sky. Small Shaheed Minar silhouette far on the skyline, silhouette only, respectful, no effects on it. No red in the hero.
-2. About: camera dives to street level in front of a Mohammadpur residential building. One window glows warm. Text: he picked up HTML during lockdown out of boredom and never put it down.
-3. Credentials: the next building. Three floors light up one by one in green: B.Sc. Computer Science and Engineering (2025), Front-End Development with React (2023), Digital Marketing, EDGE ICT Division (2025).
+1. Hero: night Dhaka from the sky, a dense skyline with buildings packed close and varied heights. "Hi. I'm Muhtasim." floats in the sky with "Full-stack developer, Mohammadpur, Dhaka", a green "Available for work" badge and a résumé button (public/resume.pdf). Small Shaheed Minar silhouette far on the skyline, silhouette only, respectful, no effects on it. Pure night: no red in the hero.
+2. About, "lockdown night": the camera dives to street level in front of a Mohammadpur house (floors, grilled balconies, window grills, a ground-floor gate, roof parapet, stair room, water tanks). As the camera arrives, most windows in the city are lit warm. On scroll they switch off one by one until only one window of the house stays on. The camera moves a little toward it. Inside, a screen glow types "<h1>Hello</h1>" with a red cursor. Then the About text fades in: he picked up HTML during lockdown out of boredom and never put it down. Reverses on scroll up.
+3. Credentials, "building myself": the next building. At arrival only the foundation shows. On scroll each floor draws itself line by line from the bottom, then its credential lights up in green with a label. Chronological from the bottom: Front-End Development with React (2023), B.Sc. Computer Science and Engineering (2025), Digital Marketing, EDGE ICT Division (2025). Reverses on scroll up.
 4. Toolset: the Neon Bazaar (see section 5).
 5. Projects: Hatirjheel curved bridge with billboards (see section 6).
-6. Contact: the road ends at Sangsad Bhaban across the lake. As the camera arrives, a red sun rises behind the building. Green building + red sun + lake reflection = a living flag. Sky shifts from bg-night to bg-dawn, stars fade out, red shimmer on the water. Then "Say hello" and the form appear.
+6. Contact: the road ends at Sangsad Bhaban across the lake. As the camera arrives, a red sun rises behind the building. Green building + red sun + lake reflection = a living flag. Sky shifts from bg-night to bg-dawn, stars fade out, red shimmer on the water. Then "Say hello" appears with email, phone, GitHub, location and the form (name, email, message).
+
+Red hints after the hero, building toward the sunrise: red tail-light trails moving away on the road (left lane; Dhaka drives on the left), a blinking red traffic signal at one bend, and a faint red glow on the horizon behind Sangsad Bhaban that grows a little each section toward Contact. The toolset cable pulse is red too.
+
+Navigation: a minimal top nav (About, Work, Contact) scrolls to each stop with Lenis. About lands at the end of its sequence with the text showing.
 
 City rules: buildings are generated by code (merged EdgesGeometry, no modeling). Dhaka feel comes from details: shop signboards, rickshaw light trails, flickering windows, light rain. Max 3 landmarks: Shaheed Minar (hero silhouette), Hatirjheel bridge, Sangsad Bhaban (finale). Sangsad Bhaban gets an accurate model (Blender from reference photos, or a checked free model), shown as wireframe edges.
 
@@ -62,7 +72,7 @@ City rules: buildings are generated by code (merged EdgesGeometry, no modeling).
 - Each sign shows the tool logo drawn as a neon tube line plus the name. Use crisp text rendering (drei Text), never blurry textures.
 - Signs start off (dim). When the camera comes near, or on hover, a sign flickers on like a tube light (2 to 3 flickers, then steady). Optional tiny "tick" sound, off by default, with a mute toggle.
 - Brightness shows experience: more used tools glow brighter. No numbers, no progress bars.
-- Click a sign: a light pulse travels along a neon cable beside the road toward the Hatirjheel bridge, and the billboards of projects that used this tool light up.
+- Click a sign: a red light pulse travels along a neon cable beside the road toward the Hatirjheel bridge, and the billboards of projects that used this tool light up.
 - Phone: signs become a grid. Tap = flicker on, and a bottom panel shows "used in".
 
 ## 6. Projects: Hatirjheel bridge

@@ -8,7 +8,9 @@ import { Overlays, type OverlaysHandle } from "./Overlays";
 import { DebugOverlay } from "./DebugOverlay";
 import { Nav } from "./Nav";
 import { CredentialLabels } from "./CredentialLabels";
+import { AboutScreen } from "./AboutScreen";
 import { TRACK_ID } from "@/lib/sections";
+import { HOLDS } from "@/lib/stopMap";
 
 // Text first; the WebGL canvas loads after, client only.
 const Scene = dynamic(() => import("./scene/Scene"), { ssr: false });
@@ -41,10 +43,16 @@ export function Experience() {
         <Scene onCut={onCut} />
       </div>
       <CredentialLabels />
+      <AboutScreen />
       <Overlays ref={overlays} />
       <div ref={fade} className="pointer-events-none fixed inset-0 z-20 bg-bg-night opacity-0" />
       {/* The tall container that produces the master scroll progress. */}
-      <div id={TRACK_ID} className="relative h-[900vh]" aria-hidden />
+      <div
+        id={TRACK_ID}
+        className="relative h-[900vh]"
+        aria-hidden
+        data-holds={HOLDS.map((h) => `${h.start.toFixed(5)}-${h.end.toFixed(5)}`).join(",")}
+      />
       <SmoothScroll trackId={TRACK_ID} onTick={onTick} />
       <Nav />
       <DebugOverlay />

@@ -18,10 +18,10 @@ export const ABOUT = {
 
 export type Credential = { title: string; issuer?: string; year: number };
 
-/** Bottom floor first: the order they light up. */
+/** Chronological, bottom floor first: the order the building draws itself. */
 export const CREDENTIALS: Credential[] = [
-  { title: "B.Sc. Computer Science and Engineering", year: 2025 },
   { title: "Front-End Development with React", year: 2023 },
+  { title: "B.Sc. Computer Science and Engineering", year: 2025 },
   { title: "Digital Marketing", issuer: "EDGE, ICT Division", year: 2025 },
 ];
 

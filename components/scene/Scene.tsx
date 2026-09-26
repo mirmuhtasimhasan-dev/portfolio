@@ -7,6 +7,8 @@ import { City } from "./City";
 import { Road } from "./Road";
 import { CameraRig } from "./CameraRig";
 import { ContentBuildings } from "./ContentBuildings";
+import { CityWindows } from "./CityWindows";
+import { RedHints } from "./RedHints";
 import { FOG_DENSITY } from "./fog";
 
 type Props = {
@@ -53,6 +55,8 @@ export default function Scene({ onCut }: Props) {
         <City />
         <Road />
         <ContentBuildings />
+        <CityWindows />
+        <RedHints />
         <CameraRig onCut={onCut} />
       </Canvas>
     </div>

@@ -8,84 +8,54 @@ import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  Color,
+  DynamicDrawUsage,
   EdgesGeometry,
   Vector3,
   type Group,
   type LineBasicMaterial,
+  type LineSegments,
   type MeshBasicMaterial,
 } from "three";
 import {
   ABOUT_LOT,
-  CREDENTIAL_FLOORS,
+  ABOUT_WINDOW,
+  CREDENTIAL_FLOOR_COUNT,
   CREDENTIALS_LOT,
   FLOOR_HEIGHT,
+  FOUNDATION_HEIGHT,
+  aboutWindowLocal,
+  credentialFloorBase,
   type ContentLot,
 } from "@/lib/contentBuildings";
-import { credentialLabelEls } from "@/lib/labelStore";
+import { getDhakaHouse } from "@/lib/dhakaHouse";
+import { aboutScreenEls, credentialLabelEls } from "@/lib/labelStore";
 import { palette } from "@/lib/palette";
 import { scrollStore } from "@/lib/scrollStore";
-import { sectionIndex } from "@/lib/sections";
-import { sectionPhase } from "@/lib/stopMap";
+import {
+  ABOUT_SNIPPET,
+  CREDENTIALS_TIMING,
+  aboutPhase,
+  aboutScreen,
+  aboutTyped,
+  cityLit,
+  credentialsPhase,
+  floorLight,
+  smoothstep,
+} from "@/lib/timeline";
 
-const smoothstep = (a: number, b: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
+// Content buildings are the only bright green buildings; their details are a
+// dimmer green so the outline still reads first.
+const DETAIL_COLOR = new Color(palette.lineBase).lerp(new Color(palette.green), 0.35);
 
-/** Box outline, floor rings and a grid of window outlines on the road-facing facade. */
-function useShellGeometry(lot: ContentLot) {
-  return useMemo(() => {
-    const h = lot.floors * FLOOR_HEIGHT;
-    const box = new BoxGeometry(lot.depth, h, lot.width);
-    box.translate(0, h / 2, 0);
-    const edges = new EdgesGeometry(box);
-    box.dispose();
-
-    const detail: number[] = [];
-    const hx = lot.depth / 2;
-    const hz = lot.width / 2;
-    for (let f = 1; f < lot.floors; f++) {
-      const y = f * FLOOR_HEIGHT;
-      detail.push(-hx, y, -hz, hx, y, -hz, hx, y, -hz, hx, y, hz, hx, y, hz, -hx, y, hz, -hx, y, hz, -hx, y, -hz);
-    }
-    // Window outlines on the facade, 3 per floor.
-    const fx = lot.facadeX + Math.sign(lot.facadeX) * 0.02;
-    const cols = 3;
-    for (let f = 0; f < lot.floors; f++) {
-      for (let c = 0; c < cols; c++) {
-        const zc = -hz + (lot.width / cols) * (c + 0.5);
-        const y0 = f * FLOOR_HEIGHT + 0.9;
-        const y1 = y0 + 1.5;
-        const z0 = zc - 0.9;
-        const z1 = zc + 0.9;
-        detail.push(fx, y0, z0, fx, y0, z1, fx, y0, z1, fx, y1, z1, fx, y1, z1, fx, y1, z0, fx, y1, z0, fx, y0, z0);
-      }
-    }
-    const detailGeo = new BufferGeometry();
-    detailGeo.setAttribute("position", new BufferAttribute(new Float32Array(detail), 3));
-    return { edges, detailGeo };
-  }, [lot]);
-}
-
-function Shell({ lot }: { lot: ContentLot }) {
-  const { edges, detailGeo } = useShellGeometry(lot);
-  useLayoutEffect(
-    () => () => {
-      edges.dispose();
-      detailGeo.dispose();
-    },
-    [edges, detailGeo]
-  );
-  return (
-    <>
-      <lineSegments geometry={edges}>
-        <lineBasicMaterial color={palette.green} fog />
-      </lineSegments>
-      <lineSegments geometry={detailGeo}>
-        <lineBasicMaterial color={palette.lineBase} fog />
-      </lineSegments>
-    </>
-  );
+function useLines(arr: Float32Array) {
+  const g = useMemo(() => {
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(arr, 3));
+    return geo;
+  }, [arr]);
+  useLayoutEffect(() => () => g.dispose(), [g]);
+  return g;
 }
 
 /** Facade plane rotation so a PlaneGeometry (facing +Z) faces the road. */
@@ -94,9 +64,6 @@ const facadeRotation = (lot: ContentLot): [number, number, number] => [
   lot.facadeX > 0 ? Math.PI / 2 : -Math.PI / 2,
   0,
 ];
-
-const ABOUT_INDEX = sectionIndex("about");
-const CREDENTIALS_INDEX = sectionIndex("credentials");
 
 /** Soft radial falloff, white in the middle; tinted by the material color. */
 function useGlowTexture() {
@@ -117,30 +84,73 @@ function useGlowTexture() {
   return tex;
 }
 
-function AboutBuilding() {
+/* ------------------------------------------------------------------ */
+/* About: a Mohammadpur house with the one window that stays on.       */
+/* ------------------------------------------------------------------ */
+
+function AboutHouse() {
   const lot = ABOUT_LOT;
+  const house = getDhakaHouse();
+  const outline = useLines(house.outline);
+  const detail = useLines(house.detail);
   const glow = useGlowTexture();
   const glass = useRef<MeshBasicMaterial>(null);
   const halo = useRef<MeshBasicMaterial>(null);
-  const out = Math.sign(lot.facadeX);
-  // Second floor, the window column nearest the approaching camera.
-  const y = 2 * FLOOR_HEIGHT + 0.9 + 0.75;
-  const z = -lot.width / 2 + lot.width / 6;
+  const screen = useRef<MeshBasicMaterial>(null);
+  const group = useRef<Group>(null);
+  const camera = useThree((st) => st.camera);
+  const size = useThree((st) => st.size);
+  const o = Math.sign(lot.facadeX);
+  const win = useMemo(() => aboutWindowLocal(ABOUT_WINDOW.floor, ABOUT_WINDOW.col), []);
+  const anchor = useMemo(() => win.clone().setX(win.x + o * 0.1), [win, o]);
+  const tmp = useMemo(() => new Vector3(), []);
+  const typedRef = useRef(-1);
 
   useFrame(() => {
-    // Fades on as the camera arrives; scrolling back up turns it off again.
-    const on = smoothstep(-0.45, -0.05, sectionPhase(scrollStore.progress, ABOUT_INDEX));
-    if (glass.current) glass.current.opacity = on;
-    if (halo.current) halo.current.opacity = on * 0.35;
+    const p = aboutPhase(scrollStore.progress);
+    const lit = cityLit(p);
+    const scr = aboutScreen(p);
+    if (glass.current) glass.current.opacity = lit;
+    if (halo.current) halo.current.opacity = lit * (0.3 + 0.3 * scr);
+    if (screen.current) screen.current.opacity = scr * 0.9;
+
+    // Screen card: projected next to the window, types the snippet.
+    const { root, code } = aboutScreenEls;
+    if (!root || !code || !group.current) return;
+    tmp.copy(anchor);
+    group.current.localToWorld(tmp).project(camera);
+    const o2 = tmp.z < 1 ? scr : 0;
+    root.style.opacity = o2.toFixed(3);
+    root.style.visibility = o2 < 0.01 ? "hidden" : "visible";
+    if (o2 >= 0.01) {
+      const x = (tmp.x * 0.5 + 0.5) * size.width;
+      const y = (-tmp.y * 0.5 + 0.5) * size.height;
+      root.style.transform = `translate3d(${(x + 40).toFixed(1)}px, ${y.toFixed(1)}px, 0) translateY(-50%)`;
+    }
+    const n = Math.round(aboutTyped(p) * ABOUT_SNIPPET.length);
+    if (n !== typedRef.current) {
+      typedRef.current = n;
+      code.textContent = ABOUT_SNIPPET.slice(0, n);
+    }
   });
 
   return (
-    <group position={lot.position} rotation-y={lot.yaw}>
-      <Shell lot={lot} />
-      <group position={[lot.facadeX + out * 0.04, y, z]} rotation={facadeRotation(lot)}>
+    <group ref={group} position={lot.position} rotation-y={lot.yaw}>
+      <lineSegments geometry={outline}>
+        <lineBasicMaterial color={palette.green} fog />
+      </lineSegments>
+      <lineSegments geometry={detail}>
+        <lineBasicMaterial color={DETAIL_COLOR} fog />
+      </lineSegments>
+      <group position={[win.x + o * 0.03, win.y, win.z]} rotation={facadeRotation(lot)}>
         <mesh>
-          <planeGeometry args={[1.8, 1.5]} />
+          <planeGeometry args={[ABOUT_WINDOW.width, ABOUT_WINDOW.height]} />
           <meshBasicMaterial ref={glass} color={palette.window} transparent opacity={0} fog depthWrite={false} />
+        </mesh>
+        {/* The screen inside, glowing while it types. */}
+        <mesh position={[0.25, -0.28, 0.01]}>
+          <planeGeometry args={[0.8, 0.5]} />
+          <meshBasicMaterial ref={screen} color={palette.text} transparent opacity={0} fog depthWrite={false} />
         </mesh>
         <mesh position-z={0.02}>
           <planeGeometry args={[5, 4.4]} />
@@ -160,80 +170,175 @@ function AboutBuilding() {
   );
 }
 
-// Floors light one by one as the camera arrives (phase -1..0 travel, 0..1 hold).
-const FLOOR_ON_AT = [-0.2, 0.1, 0.4];
-const FLOOR_FADE = 0.14;
+/* ------------------------------------------------------------------ */
+/* Credentials: the building draws itself, floor by floor.             */
+/* ------------------------------------------------------------------ */
+
+type AnimatedSeg = { a: Vector3; b: Vector3; t0: number; t1: number };
+
+function credentialSegments(lot: ContentLot): AnimatedSeg[] {
+  const hx = lot.depth / 2;
+  const hz = lot.width / 2;
+  const fx = lot.facadeX;
+  const o = Math.sign(fx);
+  const segs: AnimatedSeg[] = [];
+  const { starts, draw } = CREDENTIALS_TIMING;
+
+  for (let k = 0; k < CREDENTIAL_FLOOR_COUNT; k++) {
+    const y0 = credentialFloorBase(k);
+    const y1 = y0 + FLOOR_HEIGHT;
+    const floor: [Vector3, Vector3][] = [];
+    // Corner posts grow upward, then the slab edges, then the windows.
+    for (const [x, z] of [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) {
+      floor.push([new Vector3(x, y0, z), new Vector3(x, y1, z)]);
+    }
+    const ring: [number, number][] = [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]];
+    for (let i = 0; i < 4; i++) {
+      const [x0, z0] = ring[i];
+      const [x1, z1] = ring[(i + 1) % 4];
+      floor.push([new Vector3(x0, y1, z0), new Vector3(x1, y1, z1)]);
+    }
+    const colW = lot.width / 3;
+    for (let c = 0; c < 3; c++) {
+      const zc = -hz + colW * (c + 0.5);
+      const wx = fx + o * 0.02;
+      const a0 = y0 + 0.9;
+      const a1 = y0 + 2.4;
+      const p = [
+        new Vector3(wx, a0, zc - 1),
+        new Vector3(wx, a0, zc + 1),
+        new Vector3(wx, a1, zc + 1),
+        new Vector3(wx, a1, zc - 1),
+      ];
+      for (let i = 0; i < 4; i++) floor.push([p[i], p[(i + 1) % 4]]);
+    }
+    const n = floor.length;
+    floor.forEach(([a, b], i) => {
+      const t0 = starts[k] + draw * (i / n) * 0.75;
+      segs.push({ a, b, t0, t1: t0 + draw * 0.25 });
+    });
+  }
+  return segs;
+}
 
 function CredentialsBuilding() {
   const lot = CREDENTIALS_LOT;
-  const out = Math.sign(lot.facadeX);
+  const o = Math.sign(lot.facadeX);
   const bands = useRef<(MeshBasicMaterial | null)[]>([]);
   const rings = useRef<(LineBasicMaterial | null)[]>([]);
   const group = useRef<Group>(null);
   const camera = useThree((st) => st.camera);
   const size = useThree((st) => st.size);
-  // Label anchors: just outside the far end of each lit floor, toward the road.
-  const anchors = useMemo(
-    () =>
-      CREDENTIAL_FLOORS.map(
-        (floor) => new Vector3(lot.facadeX + out * 0.5, floor * FLOOR_HEIGHT + FLOOR_HEIGHT / 2, lot.width / 2)
-      ),
-    [lot, out]
-  );
-  const tmp = useMemo(() => new Vector3(), []);
+  const lastQ = useRef(Number.NaN);
+  const drawnLines = useRef<LineSegments>(null);
+
+  const foundation = useMemo(() => {
+    const box = new BoxGeometry(lot.depth + 0.8, FOUNDATION_HEIGHT, lot.width + 0.8);
+    box.translate(0, FOUNDATION_HEIGHT / 2, 0);
+    const e = new EdgesGeometry(box);
+    box.dispose();
+    return e;
+  }, [lot]);
+
+  const segs = useMemo(() => credentialSegments(lot), [lot]);
+  const drawn = useMemo(() => {
+    const g = new BufferGeometry();
+    const attr = new BufferAttribute(new Float32Array(segs.length * 6), 3);
+    attr.setUsage(DynamicDrawUsage);
+    g.setAttribute("position", attr);
+    return g;
+  }, [segs]);
 
   const ringGeo = useMemo(() => {
     const hx = lot.depth / 2 + 0.03;
     const hz = lot.width / 2 + 0.03;
-    const g = new BufferGeometry();
-    // Top and bottom outline of one floor band.
     const pts: number[] = [];
     for (const y of [0.05, FLOOR_HEIGHT - 0.05]) {
       pts.push(-hx, y, -hz, hx, y, -hz, hx, y, -hz, hx, y, hz, hx, y, hz, -hx, y, hz, -hx, y, hz, -hx, y, -hz);
     }
+    const g = new BufferGeometry();
     g.setAttribute("position", new BufferAttribute(new Float32Array(pts), 3));
     return g;
   }, [lot]);
-  useLayoutEffect(() => () => ringGeo.dispose(), [ringGeo]);
+
+  useLayoutEffect(
+    () => () => {
+      foundation.dispose();
+      drawn.dispose();
+      ringGeo.dispose();
+    },
+    [foundation, drawn, ringGeo]
+  );
+
+  const anchors = useMemo(
+    () =>
+      Array.from(
+        { length: CREDENTIAL_FLOOR_COUNT },
+        (_, k) => new Vector3(lot.facadeX + o * 0.5, credentialFloorBase(k) + FLOOR_HEIGHT / 2, lot.width / 2)
+      ),
+    [lot, o]
+  );
+  const tmp = useMemo(() => new Vector3(), []);
 
   useFrame(() => {
-    const phase = sectionPhase(scrollStore.progress, CREDENTIALS_INDEX);
-    // Labels leave with the section text; lit floors stay lit behind the camera.
-    const labelOut = 1 - smoothstep(1.05, 1.3, phase);
-    CREDENTIAL_FLOORS.forEach((_, i) => {
-      const on = smoothstep(FLOOR_ON_AT[i], FLOOR_ON_AT[i] + FLOOR_FADE, phase);
-      const band = bands.current[i];
+    const q = credentialsPhase(scrollStore.progress);
+
+    // Grow each segment from its start point. Only rewrite when scroll moved.
+    const geo = drawnLines.current?.geometry;
+    if (geo && (Math.abs(q - lastQ.current) > 1e-5 || Number.isNaN(lastQ.current))) {
+      lastQ.current = q;
+      const arr = geo.attributes.position.array as Float32Array;
+      segs.forEach((sg, i) => {
+        const g = smoothstep(sg.t0, sg.t1, q);
+        arr[i * 6] = sg.a.x;
+        arr[i * 6 + 1] = sg.a.y;
+        arr[i * 6 + 2] = sg.a.z;
+        arr[i * 6 + 3] = sg.a.x + (sg.b.x - sg.a.x) * g;
+        arr[i * 6 + 4] = sg.a.y + (sg.b.y - sg.a.y) * g;
+        arr[i * 6 + 5] = sg.a.z + (sg.b.z - sg.a.z) * g;
+      });
+      geo.attributes.position.needsUpdate = true;
+    }
+
+    const labelOut = 1 - smoothstep(1.05, 1.3, q);
+    for (let k = 0; k < CREDENTIAL_FLOOR_COUNT; k++) {
+      const on = floorLight(q, k);
+      const band = bands.current[k];
       if (band) band.opacity = on * 0.2;
-      const ring = rings.current[i];
+      const ring = rings.current[k];
       if (ring) ring.opacity = on;
-      const label = credentialLabelEls[i];
+      const label = credentialLabelEls[k];
       if (label && group.current) {
-        tmp.copy(anchors[i]);
+        tmp.copy(anchors[k]);
         group.current.localToWorld(tmp).project(camera);
-        const inFront = tmp.z < 1;
-        const o = inFront ? on * labelOut : 0;
-        label.style.opacity = o.toFixed(3);
-        label.style.visibility = o < 0.01 ? "hidden" : "visible";
-        if (o >= 0.01) {
+        const vis = tmp.z < 1 ? on * labelOut : 0;
+        label.style.opacity = vis.toFixed(3);
+        label.style.visibility = vis < 0.01 ? "hidden" : "visible";
+        if (vis >= 0.01) {
           const x = (tmp.x * 0.5 + 0.5) * size.width;
           const y = (-tmp.y * 0.5 + 0.5) * size.height;
           label.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translateY(-50%)`;
         }
       }
-    });
+    }
   });
 
   return (
     <group ref={group} position={lot.position} rotation-y={lot.yaw}>
-      <Shell lot={lot} />
-      {CREDENTIAL_FLOORS.map((floor, i) => {
-        const y = floor * FLOOR_HEIGHT;
+      <lineSegments geometry={foundation}>
+        <lineBasicMaterial color={palette.green} fog />
+      </lineSegments>
+      <lineSegments ref={drawnLines} geometry={drawn} frustumCulled={false}>
+        <lineBasicMaterial color={palette.green} fog />
+      </lineSegments>
+      {Array.from({ length: CREDENTIAL_FLOOR_COUNT }, (_, k) => {
+        const y = credentialFloorBase(k);
         return (
-          <group key={floor}>
+          <group key={k}>
             <lineSegments geometry={ringGeo} position-y={y}>
               <lineBasicMaterial
                 ref={(m) => {
-                  rings.current[i] = m;
+                  rings.current[k] = m;
                 }}
                 color={palette.green}
                 transparent
@@ -241,14 +346,11 @@ function CredentialsBuilding() {
                 fog
               />
             </lineSegments>
-            <mesh
-              position={[lot.facadeX + out * 0.06, y + FLOOR_HEIGHT / 2, 0]}
-              rotation={facadeRotation(lot)}
-            >
+            <mesh position={[lot.facadeX + o * 0.06, y + FLOOR_HEIGHT / 2, 0]} rotation={facadeRotation(lot)}>
               <planeGeometry args={[lot.width * 0.94, FLOOR_HEIGHT * 0.7]} />
               <meshBasicMaterial
                 ref={(m) => {
-                  bands.current[i] = m;
+                  bands.current[k] = m;
                 }}
                 color={palette.green}
                 transparent
@@ -267,7 +369,7 @@ function CredentialsBuilding() {
 export function ContentBuildings() {
   return (
     <>
-      <AboutBuilding />
+      <AboutHouse />
       <CredentialsBuilding />
     </>
   );
