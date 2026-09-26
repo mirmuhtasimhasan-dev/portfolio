@@ -1,10 +1,18 @@
+import { FEATURED } from "./bridge";
+
 // Section order = camera stop order. The camera path is built from these ids.
 // weight = share of the scroll track. About and Credentials play scroll-driven
 // sequences in their holds, and the Toolset has one hold per zone (Frontend
 // street, Backend gali, Server roof) so every sign can be read. Extra weight
 // makes the page longer (TRACK_VH), it never shortens the other sections.
 // num = the number shown in the section eyebrow (zones share the Toolset's).
-export const SECTIONS = [
+// Projects: the gantry hold, then one hold per featured billboard (from
+// data/projects.ts), so the page and the camera path grow with the count.
+export type Section = { id: string; label: string; weight: number; num: number };
+
+export const projectSectionId = (slug: string) => `project-${slug}`;
+
+export const SECTIONS: Section[] = [
   { id: "hero", label: "Hero", weight: 1, num: 1 },
   { id: "about", label: "About", weight: 1.8, num: 2 },
   { id: "credentials", label: "Credentials", weight: 1.8, num: 3 },
@@ -12,12 +20,19 @@ export const SECTIONS = [
   { id: "gali", label: "Toolset: Backend gali", weight: 1.1, num: 4 },
   { id: "roof", label: "Toolset: Server roof", weight: 1.1, num: 4 },
   { id: "projects", label: "Projects", weight: 1, num: 5 },
+  ...FEATURED.map((p) => ({ id: projectSectionId(p.slug), label: `Projects: ${p.name}`, weight: 1, num: 5 })),
   { id: "contact", label: "Contact", weight: 1, num: 6 },
-] as const;
+];
 
-export type SectionId = (typeof SECTIONS)[number]["id"];
+export type SectionId = string;
 export const SECTION_COUNT = SECTIONS.length;
-export const sectionIndex = (id: SectionId) => SECTIONS.findIndex((s) => s.id === id);
+export const sectionIndex = (id: SectionId) => {
+  const i = SECTIONS.findIndex((s) => s.id === id);
+  if (i < 0) throw new Error(`Unknown section "${id}"`);
+  return i;
+};
+/** Section indices of the Projects gantry and every billboard hold. */
+export const PROJECT_SECTIONS = SECTIONS.map((s, i) => (s.id === "projects" || s.id.startsWith("project-") ? i : -1)).filter((i) => i >= 0);
 
 /** The three Neon Bazaar holds, in street order, by tool zone. */
 export const ZONE_SECTION = { frontend: "toolset", backend: "gali", server: "roof" } as const;

@@ -7,6 +7,10 @@ import { SmoothScroll } from "./SmoothScroll";
 import { Overlays, type OverlaysHandle } from "./Overlays";
 import { DebugOverlay } from "./DebugOverlay";
 import { Nav } from "./Nav";
+import { ProjectPanel } from "./ProjectPanel";
+import { projectStore } from "@/lib/projectStore";
+import { scrollStore } from "@/lib/scrollStore";
+import { PROJECT_SECTIONS } from "@/lib/sections";
 import { AboutCard } from "./AboutCard";
 import { TRACK_ID, TRACK_VH } from "@/lib/sections";
 import { ToolTooltip } from "./ToolTooltip";
@@ -19,7 +23,11 @@ export function Experience() {
   const overlays = useRef<OverlaysHandle>(null);
   const fade = useRef<HTMLDivElement>(null);
 
-  const onTick = useCallback(() => overlays.current?.update(), []);
+  const onTick = useCallback(() => {
+    overlays.current?.update();
+    // Leaving the bridge closes an open project panel.
+    if (projectStore.getOpen() && !PROJECT_SECTIONS.includes(scrollStore.section)) projectStore.setOpen(null);
+  }, []);
 
   // Reduced motion: soft fade cut between stop frames.
   const onCut = useCallback((apply: () => void) => {
@@ -57,6 +65,7 @@ export function Experience() {
       />
       <SmoothScroll trackId={TRACK_ID} onTick={onTick} />
       <Nav />
+      <ProjectPanel />
       <DebugOverlay />
     </>
   );

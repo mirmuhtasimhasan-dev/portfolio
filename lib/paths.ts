@@ -1,47 +1,17 @@
 import { CatmullRomCurve3, Vector3 } from "three";
-import { SECTION_COUNT } from "./sections";
+import { SECTION_COUNT, projectSectionId, sectionIndex } from "./sections";
+import { BILLBOARDS, BRIDGE_EYE, BRIDGE_TO, GANTRY_A, GANTRY_EYE } from "./bridge";
+import { SANGSAD_POSITION, roadFrame } from "./road";
 
-/*
- * World layout: the road starts under the hero sky view and runs toward -Z,
- * bending right for the Hatirjheel stretch and ending at the lake in front of
- * Sangsad Bhaban. Everything (city, camera) is placed relative to this curve.
- */
-export const ROAD_HALF_WIDTH = 5;
-
-export const roadCurve = new CatmullRomCurve3(
-  [
-    new Vector3(0, 0, 90),
-    new Vector3(0, 0, 20),
-    new Vector3(5, 0, -60),
-    new Vector3(-6, 0, -140),
-    new Vector3(2, 0, -215),
-    new Vector3(24, 0, -280),
-    new Vector3(62, 0, -335),
-    new Vector3(76, 0, -405),
-    new Vector3(62, 0, -470),
-    new Vector3(56, 0, -505),
-  ],
-  false,
-  "centripetal"
-);
-
-export const ROAD_LENGTH = roadCurve.getLength();
-const UP = new Vector3(0, 1, 0);
-
-/** Point beside the road: a = arc fraction 0..1, lateral = metres to the right, height = metres up. */
-export function roadFrame(a: number, lateral = 0, height = 0): Vector3 {
-  const p = roadCurve.getPointAt(a);
-  const tangent = roadCurve.getTangentAt(a);
-  const right = new Vector3().crossVectors(tangent, UP).normalize();
-  return p.addScaledVector(right, lateral).setY(height);
-}
-
-/** The lake + Sangsad Bhaban site past the road end (kept clear of buildings). */
-const roadEnd = roadCurve.getPointAt(1);
-const roadEndDir = roadCurve.getTangentAt(1);
-export const LAKE_CENTER = roadEnd.clone().addScaledVector(roadEndDir, 70);
-export const LAKE_RADIUS = 70;
-export const SANGSAD_POSITION = roadEnd.clone().addScaledVector(roadEndDir, 160);
+export {
+  ROAD_HALF_WIDTH,
+  roadCurve,
+  ROAD_LENGTH,
+  roadFrame,
+  LAKE_CENTER,
+  LAKE_RADIUS,
+  SANGSAD_POSITION,
+} from "./road";
 
 /*
  * Camera keyframes. `stop` marks the keyframe that is a section's camera stop;
@@ -55,36 +25,41 @@ export const EYE = 3.4;
 
 const KEYS: Key[] = [
   // 0 Hero: above the road start, horizon in the upper half, skyline filling the lower half.
-  { stop: 0, pos: new Vector3(0, 80, 108), look: new Vector3(18, 34, -260) },
+  { stop: sectionIndex("hero"), pos: new Vector3(0, 80, 108), look: new Vector3(18, 34, -260) },
   // Dive down the road corridor.
   { pos: new Vector3(0, 46, 52), look: roadFrame(0.27, 0, 8) },
   { pos: roadFrame(0.1, 0, 15), look: roadFrame(0.26, 0, EYE + 1) },
   // 1 About: road center, residential building ahead on the right.
-  { stop: 1, pos: roadFrame(0.18, 0, EYE), look: roadFrame(0.215, 12, EYE) },
+  { stop: sectionIndex("about"), pos: roadFrame(0.18, 0, EYE), look: roadFrame(0.215, 12, EYE) },
   { pos: roadFrame(0.245, 0, EYE), look: roadFrame(0.33, 0, EYE) },
   // 2 Credentials: road center, the next building ahead on the left.
   // Framed so every floor banner and the signboard beside it are in view.
-  { stop: 2, pos: roadFrame(0.29, 0, EYE), look: roadFrame(0.32, -14, EYE + 1) },
+  { stop: sectionIndex("credentials"), pos: roadFrame(0.29, 0, EYE), look: roadFrame(0.32, -14, EYE + 1) },
   { pos: roadFrame(0.36, 0, EYE), look: roadFrame(0.46, 0, EYE) },
   // 3 Toolset, Frontend street: looking down the shop signboards.
-  { stop: 3, pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.47, 0, EYE + 1) },
+  { stop: sectionIndex("toolset"), pos: roadFrame(0.42, 0, EYE), look: roadFrame(0.47, 0, EYE + 1) },
   // 4 Toolset, Backend gali: past the shop boards, the row of tall signs ahead.
-  { stop: 4, pos: roadFrame(0.488, 0, EYE), look: roadFrame(0.53, 0, EYE + 1) },
+  { stop: sectionIndex("gali"), pos: roadFrame(0.488, 0, EYE), look: roadFrame(0.53, 0, EYE + 1) },
   // 5 Toolset, Server roof: further on, looking up at the rooftop line ahead.
-  { stop: 5, pos: roadFrame(0.515, 0, EYE), look: roadFrame(0.575, 0, 12) },
+  { stop: sectionIndex("roof"), pos: roadFrame(0.515, 0, EYE), look: roadFrame(0.575, 0, 12) },
   { pos: roadFrame(0.565, 0, EYE + 1.5), look: roadFrame(0.66, 0, 5) },
-  // 6 Projects: onto the Hatirjheel stretch.
-  { stop: 6, pos: roadFrame(0.62, 0, 6), look: roadFrame(0.72, 0, 6) },
-  // Follow the road through the bend instead of cutting the corner.
-  { pos: roadFrame(0.66, 0, 6), look: roadFrame(0.76, 0, 6) },
-  { pos: roadFrame(0.7, 0, 6), look: roadFrame(0.8, 0, 6) },
-  { pos: roadFrame(0.78, 0, 6), look: roadFrame(0.88, 0, 6) },
-  { pos: roadFrame(0.825, 0, 6), look: roadFrame(0.925, 0, 6.5) },
-  { pos: roadFrame(0.87, 0, 6), look: roadFrame(0.97, 0, 7) },
-  { pos: roadFrame(0.925, 0, 6), look: roadFrame(1, 0, 9) },
-  // 7 Contact: road end, looking across the lake at Sangsad Bhaban.
+  // Projects: the gantry over the road, just before the bridge.
+  { stop: sectionIndex("projects"), pos: roadFrame(GANTRY_A - 0.034, 0, GANTRY_EYE), look: roadFrame(GANTRY_A, 0, 9.6) },
+  // One hold per billboard, looking at it; waypoints between follow the road.
+  ...BILLBOARDS.flatMap((b, i): Key[] => {
+    const hold: Key = { stop: sectionIndex(projectSectionId(b.project.slug)), pos: b.hold.clone(), look: b.position.clone() };
+    const prev = i === 0 ? GANTRY_A - 0.034 : BILLBOARDS[i - 1].holdA;
+    const midA = (prev + b.holdA) / 2;
+    return [{ pos: roadFrame(midA, 0, BRIDGE_EYE), look: roadFrame(midA + 0.09, 0, BRIDGE_EYE + 0.6) }, hold];
+  }),
+  // Off the bridge toward the lake, keeping to the road through the bend.
+  // (every 0.035 of road from the last hold, so the path never cuts the bend).
+  ...Array.from({ length: 40 }, (_, i) => (BILLBOARDS.at(-1)?.holdA ?? GANTRY_A) + 0.035 * (i + 1))
+    .filter((a) => a < 0.94)
+    .map((a): Key => ({ pos: roadFrame(a, 0, a < BRIDGE_TO ? BRIDGE_EYE : 6), look: roadFrame(Math.min(1, a + 0.08), 0, 7) })),
+  // Contact: road end, looking across the lake at Sangsad Bhaban.
   {
-    stop: 7,
+    stop: sectionIndex("contact"),
     pos: roadFrame(0.965, 0, 6),
     look: SANGSAD_POSITION.clone().setY(16),
   },

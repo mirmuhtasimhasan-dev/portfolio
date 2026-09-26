@@ -5,6 +5,7 @@ import { SECTIONS, type SectionId } from "@/lib/sections";
 import { scrollStore } from "@/lib/scrollStore";
 import { sectionOpacity } from "@/lib/stopMap";
 import { CREDENTIALS, PERSON } from "@/lib/content";
+import { FEATURED } from "@/lib/bridge";
 import { ContactPanel } from "./ContactPanel";
 
 export type OverlaysHandle = { update: () => void };
@@ -52,7 +53,6 @@ const LAYOUT: Record<SectionId, string> = {
   toolset: "items-start justify-center text-center pt-[12vh]",
   gali: "items-start justify-center text-center pt-[12vh]",
   roof: "items-end justify-center text-center pb-[10vh]",
-  projects: "items-start justify-start pt-[14vh]",
   contact: "items-center justify-center pt-12",
 };
 
@@ -121,12 +121,19 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
     case "roof":
       return <ZoneCaption index={index} zone="Server roof" note="Up on the rooftops: where it gets shipped and kept running." />;
     case "projects":
+      // The gantry sign over the road is the heading; this is for screen readers.
       return (
-        <Scrimmed className="max-w-xl">
-          <Eyebrow index={index} label="Projects" />
-          <h2 className="text-4xl font-semibold tracking-tight text-text sm:text-6xl">Projects</h2>
-          <p className="mt-4 text-base text-text-2 sm:text-lg">Placeholder: Hatirjheel billboards.</p>
-        </Scrimmed>
+        <div className="sr-only">
+          <h2>Projects</h2>
+          <ul>
+            {FEATURED.map((p) => (
+              <li key={p.slug}>
+                {p.name} ({p.year}, {p.status}): {p.what}
+              </li>
+            ))}
+          </ul>
+          <a href="/projects">All projects</a>
+        </div>
       );
     case "contact":
       return (
@@ -134,6 +141,8 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
           <ContactPanel eyebrow={<Eyebrow index={index} label="Contact" />} />
         </Scrimmed>
       );
+    default:
+      return null;
   }
 }
 
@@ -171,7 +180,7 @@ export const Overlays = forwardRef<OverlaysHandle>(function Overlays(_, ref) {
             panels.current[i] = el;
           }}
           aria-label={sec.label}
-          className={`absolute inset-0 flex px-6 sm:px-16 ${LAYOUT[sec.id]}`}
+          className={`absolute inset-0 flex px-6 sm:px-16 ${LAYOUT[sec.id] ?? ""}`}
           style={{ opacity: i === 0 ? 1 : 0, visibility: i === 0 ? "visible" : "hidden" }}
         >
           <SectionBody id={sec.id} index={i} />

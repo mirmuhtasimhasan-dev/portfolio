@@ -1,9 +1,9 @@
 import { PerspectiveCamera, Vector3 } from "three";
 import { tools, type Tool } from "@/data/tools";
-import { projects } from "@/data/projects";
 import { getCity, type Footprint } from "./city";
 import { ROAD_LENGTH, roadCurve, roadFrame, sampleCamera } from "./paths";
 import { ZONE_SECTION, sectionIndex } from "./sections";
+import { BRIDGE_FROM, BRIDGE_TO, GANTRY_A } from "./bridge";
 
 /*
  * The Neon Bazaar layout. Every sign is placed by a small solver so that,
@@ -273,34 +273,17 @@ export function getBazaar(width = 1440, height = 900) {
   return hit;
 }
 
-/* ---------------- Projects billboards (placeholders until Phase 4) ---------------- */
-
-export type BillboardSpec = { slug: string; name: string; year: number; position: Vector3; yaw: number };
-
-export const BILLBOARD = { w: 6, h: 3.4, bottom: 9.4 };
-export const MAX_BILLBOARDS = 5;
-
-export function buildBillboards(): BillboardSpec[] {
-  const cam = new Vector3();
-  const look = new Vector3();
-  sampleCamera(sectionIndex("projects"), cam, look);
-  return projects
-    .filter((p) => p.featured)
-    .slice(0, MAX_BILLBOARDS)
-    .map((p, i) => {
-      // Alternating right and left, spaced along the road ahead of the stop.
-      const side = i % 2 === 0 ? 1 : -1;
-      const a = 0.652 + i * 0.03;
-      const position = roadFrame(a, side * (SIGN_CLEARANCE + BILLBOARD.w / 2), BILLBOARD.bottom + BILLBOARD.h / 2);
-      return { slug: p.slug, name: p.name, year: p.year, position, yaw: facing(position, cam) };
-    });
-}
-
 /* ---------------- Neon cable beside the road ---------------- */
 
-export const CABLE = { lateral: -9.2, from: 0.43, to: 0.715, height: 7.2, sag: 0.55, span: 14 };
+export const CABLE = { lateral: -9.2, from: 0.43, to: BRIDGE_TO - 0.006, height: 7.2, bridgeHeight: 11, sag: 0.55, span: 14 };
 
-/** Overhead cable along the left side of the road, sagging between poles. */
+/** Cable height: street height through the bazaar, above the billboards on the bridge. */
+const cableHeight = (a: number) => {
+  const t = Math.min(1, Math.max(0, (a - (GANTRY_A - 0.012)) / (BRIDGE_FROM - GANTRY_A + 0.012)));
+  return CABLE.height + (CABLE.bridgeHeight - CABLE.height) * t * t * (3 - 2 * t);
+};
+
+/** Overhead cable along the left side of the road to the end of the bridge, sagging between poles. */
 export function buildCable() {
   const pts: Vector3[] = [];
   const poles: Vector3[] = [];
@@ -309,14 +292,14 @@ export function buildCable() {
   const per = 10;
   for (let i = 0; i <= spans; i++) {
     const a = CABLE.from + ((CABLE.to - CABLE.from) * i) / spans;
-    poles.push(roadFrame(a, CABLE.lateral, 0));
+    poles.push(roadFrame(a, CABLE.lateral, cableHeight(a)));
     if (i === spans) break;
     for (let k = 0; k < per; k++) {
       const t = k / per;
       const aa = a + ((CABLE.to - CABLE.from) / spans) * t;
-      pts.push(roadFrame(aa, CABLE.lateral, CABLE.height - CABLE.sag * 4 * t * (1 - t)));
+      pts.push(roadFrame(aa, CABLE.lateral, cableHeight(aa) - CABLE.sag * 4 * t * (1 - t)));
     }
   }
-  pts.push(roadFrame(CABLE.to, CABLE.lateral, CABLE.height));
+  pts.push(roadFrame(CABLE.to, CABLE.lateral, cableHeight(CABLE.to)));
   return { points: pts, poles };
 }

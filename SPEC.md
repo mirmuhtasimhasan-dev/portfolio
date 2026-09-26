@@ -36,7 +36,7 @@ Line hierarchy: generated buildings are line-base. Bright green only on the road
 The camera moves ONLY by scroll. It never moves on its own (a tiny idle float is fine).
 
 - Lenis smooth scroll, synced to the GSAP ticker. A mouse-wheel notch moves about two thirds as far as the browser default; touchpad scrolling stays at its natural speed.
-- One master scroll progress value, 0 to 1, from a tall scroll container (about 1170vh on desktop; its height is computed from the section weights).
+- One master scroll progress value, 0 to 1, from a tall scroll container (about 1400vh on desktop with two featured projects; its height is computed from the section weights).
 - Camera position and camera look target each follow their own CatmullRomCurve3 (centripetal). No straight line jumps between points.
 - Progress goes through a stop map before sampling the curves. Each section has a hold zone where the camera is almost still (about 40% of that section's scroll range) and eased travel zones between holds.
 - Sections can have different scroll weights. About and Credentials get 1.8x because their holds play scroll-driven sequences, and the Toolset has three holds of 1.1x each (one per zone); the hold stays about 40% of each section's range. Extra weight makes the page longer, it never shortens other sections.
@@ -57,10 +57,10 @@ The camera moves ONLY by scroll. It never moves on its own (a tiny idle float is
 2. About, "lockdown night": the camera dives to street level in front of a Mohammadpur house (floors, grilled balconies, window grills, a ground-floor gate, roof parapet, stair room, water tanks). As the camera arrives, many windows in the city are lit warm. Windows sit flush on the road-facing walls in a regular grid (one row per floor, even columns, about 1.2 x 1.5 m); not every building has them and not every window is lit; far ones shrink to dots and none turn into large squares near the camera. On scroll they switch off in small clusters by building and floor until only one window of the house stays on. The camera moves a little toward it. Inside the window, a dark silhouette of a person at a desk with a laptop glow (shape only); the window casts a faint warm light on the wall below and the balcony beside it. A thin green leader line draws from the window to one clean card styled as a small code editor (top bar with three dots and "index.html", faint line numbers, solid dark background, hairline border, no radial backing); a small light dot travels along the line from window to card on a loop, placed beside the house, clear of the road and the house's lines. In the card: first the code types "<h1>Hello</h1>" with a red cursor, then a small mono label "2020 · lockdown", then "I picked up HTML during lockdown, out of boredom." After a short beat, "I never put it down." appears larger and in green, the strongest line, and the red cursor moves to the end of it and keeps blinking. All driven by scroll; reverses on scroll up.
 3. Credentials, "building myself": the next building, set back 3 m behind the sidewalk with an empty plot beside it on the road side. At arrival only the foundation shows. On scroll each floor draws itself line by line from the bottom (including a balcony edge), then its credential lights up in green and hangs from the balcony edge as a banner that unrolls. A Dhaka-style construction signboard on legs stands on the plot beside the building, toward the road, facing the camera: PROJECT What I studied, DEVELOPER Muhtasim, STARTED 2023, STATUS. STATUS follows the build: Foundation, Floor 1, Floor 2, then "Still building" in green with a slow blink once all floors are done. No separate heading. The hold frames all banners and the board. Chronological from the bottom: Front-End Development with React (2023), B.Sc. Computer Science and Engineering (2025), Digital Marketing, EDGE ICT Division (2025). Reverses on scroll up.
 4. Toolset: the Neon Bazaar (see section 5).
-5. Projects: Hatirjheel curved bridge with billboards (see section 6).
+5. Projects: an overhead highway gantry sign before the Hatirjheel bridge, then one hold per billboard (see section 6).
 6. Contact: the road ends at Sangsad Bhaban across the lake. As the camera arrives, a red sun rises behind the building. Green building + red sun + lake reflection = a living flag. Sky shifts from bg-night to bg-dawn, stars fade out, red shimmer on the water. Then "Say hello" appears with email, phone, GitHub, location and the form (name, email, message).
 
-Red hints after the hero, building toward the sunrise: red tail-light trails moving away on the road (left lane; Dhaka drives on the left), a blinking red traffic signal at one bend, and a faint red glow on the horizon behind Sangsad Bhaban that grows a little each section toward Contact. The toolset cable pulse is red too.
+Red hints after the hero, building toward the sunrise: red tail-light trails moving away on the road (left lane; Dhaka drives on the left), a blinking red traffic signal at one bend, and a faint red glow on the horizon behind Sangsad Bhaban that grows a little each section up to the gantry, eases back down over the bridge, and peaks only for the Contact sunrise. The toolset cable pulse is red too.
 
 Navigation: a minimal top nav (About, Work, Contact) scrolls to each stop with Lenis. About lands at the end of its sequence with the text showing.
 
@@ -69,7 +69,7 @@ City rules: buildings are generated by code (merged EdgesGeometry, no modeling).
 ## 5. Toolset: Neon Bazaar
 
 - Tools are grouped by zone, one stretch of street after another: Frontend street (shop boards on both sides of the road, facing each other like a market), Backend gali (one neat row of tall signs on the right), Server roof (one line of signs along the rooftop edge on the left, all at one height). The Toolset has one camera hold per zone, in that order; the Server roof hold looks up at the rooftop line. The bazaar stretch is low shop-houses (3 to 5 floors) so rooftop signs stay in view.
-- Layout rules, solved in code for the actual viewport: at each hold every sign of that zone faces the camera, has the same size and height as the rest of its zone, and is evenly spaced as seen from the hold; none sits under the title or caption, none is cut by the screen edge, none overlaps another sign; every sign's inner edge stays at least 8.9 m from the road center. Signs light during their zone's hold, nearest first.
+- Layout rules, solved in code for the actual viewport: at each hold every sign of that zone faces the camera, has the same size and height as the rest of its zone, and is evenly spaced as seen from the hold; none sits under the title or caption, none is cut by the screen edge, none overlaps another sign; every sign's inner edge stays at least 8.9 m from the road center. Signs light during their zone's hold, nearest first. At each Toolset hold only that zone's signs stay bright; the other zones dim to about 30%.
 - Each sign shows the tool logo drawn as a neon tube line plus the name. Use crisp text rendering (drei Text), never blurry textures.
 - Signs start off (dim). When the camera comes near (scroll-driven, nearest first), or on hover, a sign flickers on like a tube light (2 to 3 flickers, then steady). Optional tiny "tick" sound, off by default, with a mute toggle in the nav.
 - Hover shows a small "used in" card above the sign. Tools not in any project's stack say "Learning and side builds".
@@ -79,11 +79,14 @@ City rules: buildings are generated by code (merged EdgesGeometry, no modeling).
 
 ## 6. Projects: Hatirjheel bridge
 
-- Billboards are placed automatically from data/projects.ts, alternating right and left.
-- Only projects with featured: true go on the bridge. Max 5. The bridge length and camera path grow with the count.
-- The end of the bridge has a small neon sign "All projects" linking to /projects, a normal grid page with every project.
-- Billboards show screenshots (webp). Featured ones may use a short muted video loop (5 to 8 seconds). No live iframes.
-- Hover: frame glows, turning slightly red. Click: a detail panel with what, stack, infra and link.
+- No corner heading. An overhead green highway gantry sign over the road before the bridge is the heading: "PROJECTS ↑ Hatirjheel", one row per featured project with a live distance in km that counts down as the camera moves (map scale: 1 world metre reads as 20 m), and "All projects →". A row turns bright green at 0.0 km. Clicking a row scrolls (Lenis) to that billboard's hold; "All projects" opens /projects.
+- The bridge is a curved Hatirjheel-style deck over water (railings, piers, curved lamp posts, faint reflections); no buildings on the water.
+- Billboards are placed automatically from data/projects.ts, alternating right and left, facing their hold camera, inner edge 8.9 m from the road center. One camera hold per billboard.
+- Only projects with featured: true go on the bridge. Max 5. The bridge length, the page and the camera path grow with the count (sections are generated from the data).
+- The end of the bridge has a small neon sign "All projects" linking to /projects, a dark grid page with every project.
+- Billboards show screenshots (webp, captured with headless Chrome at 1440 x 900). Featured ones may use a short muted video loop (5 to 8 seconds). No live iframes.
+- Hover: a glow around the frame, turning slightly red. Click: a detail panel with what, stack, infra and link (Esc or leaving the bridge closes it).
+- The Neon Bazaar cable runs over the bridge; its red pulse lights each matching billboard as it passes and ends on the farthest one.
 - Phone: normal card list over the skyline background.
 
 ## 7. Data files

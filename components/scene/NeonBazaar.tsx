@@ -14,20 +14,12 @@ import {
   Line as ThreeLine,
   LineBasicMaterial,
   type Mesh,
-  type MeshBasicMaterial,
   type Sprite,
   type SpriteMaterial,
 } from "three";
 import type { Line2, LineSegments2 } from "three-stdlib";
-import {
-  BILLBOARD,
-  CABLE,
-  buildBillboards,
-  buildCable,
-  getBazaar,
-  type BillboardSpec,
-  type SignSpec,
-} from "@/lib/bazaar";
+import { CABLE, buildCable, getBazaar, type SignSpec } from "@/lib/bazaar";
+import { BILLBOARDS } from "@/lib/bridge";
 import { bazaarStore } from "@/lib/bazaarStore";
 import { toolTipEls } from "@/lib/labelStore";
 import { logoSegments } from "@/lib/logoLines";
@@ -148,17 +140,21 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
 
     const hovered = bazaarStore.hovered === tool.name;
     const selected = bazaarStore.selected === tool.name;
-    const b = SIGN_DIM + (lit - SIGN_DIM) * s.x;
+    // At a Toolset hold only that zone stays bright; the others dim to 30%.
+    const stop = scrollStore.stop;
+    const focus = inBazaar(stop) ? Math.max(0, 1 - Math.abs(stop - spec.section)) : 1;
+    const k = hovered || selected ? 1 : 0.3 + 0.7 * focus;
+    const b = (SIGN_DIM + (lit - SIGN_DIM) * s.x) * k;
     const tm = tube.current?.material;
     if (tm) tm.opacity = b;
     const gm = glow.current?.material;
-    if (gm) gm.opacity = 0.22 * s.x * lit + (hovered ? 0.12 : 0);
+    if (gm) gm.opacity = (0.22 * s.x * lit + (hovered ? 0.12 : 0)) * k;
     const fm = frame.current?.material;
     if (fm) {
       fm.color.copy(BASE).lerp(GREEN, selected ? 0.9 : hovered ? 0.6 : 0.25 * s.x);
-      fm.opacity = 0.5 + 0.5 * s.x;
+      fm.opacity = (0.5 + 0.5 * s.x) * k;
     }
-    if (text.current) text.current.fillOpacity = 0.3 + 0.7 * s.x * (0.6 + 0.4 * lit);
+    if (text.current) text.current.fillOpacity = (0.3 + 0.7 * s.x * (0.6 + 0.4 * lit)) * k;
   });
 
   const over = (e: ThreeEvent<PointerEvent>) => {
@@ -249,12 +245,18 @@ function CableAndPulse({ signs }: { signs: SignSpec[] }) {
   const core = useRef<SpriteMaterial>(null);
   const headSprites = useRef<(Sprite | null)[]>([]);
   const trail = useRef<ThreeLine>(null);
-  const run = useRef<{ path: Vector3[]; cum: number[]; t0: number; tool: string } | null>(null);
+  const run = useRef<{
+    path: Vector3[];
+    cum: number[];
+    t0: number;
+    /** Billboards to light and the path distance at which the pulse passes them. */
+    stops: { slug: string; at: number }[];
+  } | null>(null);
   const tmp = useMemo(() => new Vector3(), []);
 
   const poles = useMemo(() => {
     const pts: number[] = [];
-    for (const p of cable.poles) pts.push(p.x, 0, p.z, p.x, CABLE.height + 0.35, p.z);
+    for (const p of cable.poles) pts.push(p.x, 0, p.z, p.x, p.y + 0.35, p.z);
     const g = new BufferGeometry();
     g.setAttribute("position", new BufferAttribute(new Float32Array(pts), 3));
     return g;
@@ -301,13 +303,27 @@ function CableAndPulse({ signs }: { signs: SignSpec[] }) {
       if (sign) {
         // Up from the sign to cable height, across the street to the cable,
         // then along the cable toward the Projects stop.
+        // Then over the bridge, lighting every billboard of a project that
+        // used the tool as it passes, ending on the farthest one.
         const up = sign.anchor.clone().setY(CABLE.height);
         const across = roadFrame(Math.max(CABLE.from, sign.a), CABLE.lateral, CABLE.height);
-        const along = cable.points.slice(nearestIndex(cable.points, across));
+        const start = nearestIndex(cable.points, across);
+        const used = featuredUsing(req.tool).map((p) => p.slug);
+        const targets = BILLBOARDS.filter((b) => used.includes(b.project.slug));
+        const last = targets[targets.length - 1];
+        const endIdx = last ? nearestIndex(cable.points, roadFrame(last.a, CABLE.lateral, 0)) : cable.points.length - 1;
+        const along = cable.points.slice(start, Math.max(start + 1, endIdx + 1));
         const path = [sign.anchor.clone(), up, across, ...along];
+        if (last) path.push(last.anchor.clone());
         const cum = [0];
         for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + path[i].distanceTo(path[i - 1]));
-        run.current = { path, cum, t0: clock.elapsedTime, tool: req.tool };
+        const base = 3; // sign, up, across
+        const stops = targets.map((b) => {
+          const k = b === last ? path.length - 1 : base + nearestIndex(along, roadFrame(b.a, CABLE.lateral, 0));
+          return { slug: b.project.slug, at: cum[Math.min(k, cum.length - 1)] };
+        });
+        bazaarStore.lit = {};
+        run.current = { path, cum, t0: clock.elapsedTime, stops };
       }
     }
 
@@ -319,9 +335,10 @@ function CableAndPulse({ signs }: { signs: SignSpec[] }) {
 
     const total = r.cum[r.cum.length - 1];
     const d = (clock.elapsedTime - r.t0) * PULSE_SPEED;
+    for (const st of r.stops) {
+      if (d >= st.at && bazaarStore.lit[st.slug] === undefined) bazaarStore.lit[st.slug] = clock.elapsedTime;
+    }
     if (d >= total + TRAIL_LEN) {
-      // Arrived: light the billboards of projects that used the tool.
-      bazaarStore.lit = { slugs: featuredUsing(r.tool).map((p) => p.slug), at: clock.elapsedTime };
       run.current = null;
       return;
     }
@@ -389,75 +406,12 @@ function nearestIndex(points: Vector3[], p: Vector3) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Placeholder billboards at the Projects stop (Phase 4 replaces them) */
-/* ------------------------------------------------------------------ */
-
-function Billboard({ spec }: { spec: BillboardSpec }) {
-  const frame = useRef<FatLine>(null);
-  const back = useRef<MeshBasicMaterial>(null);
-  const name = useRef<TroikaText>(null);
-  const { w, h } = BILLBOARD;
-
-  const posts = useMemo(() => {
-    const c = Math.cos(spec.yaw);
-    const s = Math.sin(spec.yaw);
-    const pts: number[] = [];
-    for (const u of [-w * 0.3, w * 0.3]) {
-      const x = spec.position.x + u * c;
-      const z = spec.position.z - u * s;
-      pts.push(x, 0, z, x, BILLBOARD.bottom, z);
-    }
-    const g = new BufferGeometry();
-    g.setAttribute("position", new BufferAttribute(new Float32Array(pts), 3));
-    return g;
-  }, [spec, w]);
-  useLayoutEffect(() => () => posts.dispose(), [posts]);
-
-  useFrame(({ clock }) => {
-    const { slugs, at } = bazaarStore.lit;
-    const on = slugs.includes(spec.slug);
-    // A bright flash on arrival, then a steady glow.
-    const flash = on ? 1 - smoothstep(0, 0.8, clock.elapsedTime - at) : 0;
-    const x = on ? 0.7 + 0.3 * flash : 0;
-    const fm = frame.current?.material;
-    if (fm) {
-      fm.color.copy(BASE).lerp(GREEN, x);
-      fm.opacity = 0.6 + 0.4 * x;
-    }
-    if (back.current) back.current.color.set(palette.bgNight).lerp(GREEN, 0.1 * x);
-    if (name.current) name.current.fillOpacity = 0.35 + 0.65 * x;
-  });
-
-  return (
-    <group>
-      <lineSegments geometry={posts}>
-        <lineBasicMaterial color={palette.lineBase} fog />
-      </lineSegments>
-      <group position={spec.position} rotation-y={spec.yaw}>
-        <mesh>
-          <planeGeometry args={[w, h]} />
-          <meshBasicMaterial ref={back} color={palette.bgNight} transparent opacity={0.92} fog />
-        </mesh>
-        <Line ref={frame} points={rectPoints(w, h)} segments lineWidth={2} color={palette.lineBase} transparent />
-        <Text ref={name} font={FONT} fontSize={0.55} color={palette.text} position={[0, 0.3, 0.02]} anchorY="middle" fillOpacity={0.35}>
-          {spec.name}
-        </Text>
-        <Text font={FONT} fontSize={0.28} color={palette.text2} position={[0, -0.55, 0.02]} anchorY="middle">
-          {String(spec.year)}
-        </Text>
-      </group>
-    </group>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 
 export function NeonBazaar() {
   const width = useThree((s) => s.size.width);
   const height = useThree((s) => s.size.height);
   // Solved for the actual viewport, so no sign is cut off or overlaps.
   const signs = useMemo(() => getBazaar(width, height), [width, height]);
-  const billboards = useMemo(() => buildBillboards(), []);
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const tmp = useMemo(() => new Vector3(), []);
@@ -498,9 +452,6 @@ export function NeonBazaar() {
         <NeonSign key={spec.tool.name} spec={spec} index={i} />
       ))}
       <CableAndPulse signs={signs} />
-      {billboards.map((b) => (
-        <Billboard key={b.slug} spec={b} />
-      ))}
     </group>
   );
 }

@@ -10,6 +10,7 @@ import { ContentBuildings } from "./ContentBuildings";
 import { CityWindows } from "./CityWindows";
 import { RedHints } from "./RedHints";
 import { NeonBazaar } from "./NeonBazaar";
+import { Hatirjheel } from "./Hatirjheel";
 import { FOG_DENSITY } from "./fog";
 
 type Props = {
@@ -62,6 +63,7 @@ export default function Scene({ onCut }: Props) {
         <Suspense fallback={null}>
           <NeonBazaar />
         </Suspense>
+        <Hatirjheel />
         <CameraRig onCut={onCut} />
       </Canvas>
     </div>

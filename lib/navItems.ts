@@ -1,4 +1,4 @@
-import { sectionIndex } from "./sections";
+import { PROJECT_SECTIONS, sectionIndex } from "./sections";
 
 /**
  * Top nav: where each link scrolls to (section + phase through its hold), and
@@ -16,7 +16,7 @@ export const scrollNav = [
     label: "Work",
     target: sectionIndex("projects"),
     phase: 0.5,
-    sections: [sectionIndex("toolset"), sectionIndex("gali"), sectionIndex("roof"), sectionIndex("projects")],
+    sections: [sectionIndex("toolset"), sectionIndex("gali"), sectionIndex("roof"), ...PROJECT_SECTIONS],
   },
   {
     label: "Contact",

@@ -3,6 +3,7 @@ import { mulberry32 } from "./random";
 import { palette } from "./palette";
 import { CONTENT_LOTS, FLOOR_HEIGHT, SIDEWALK } from "./contentBuildings";
 import { ABOUT_TIMING } from "./timeline";
+import { WATER } from "./bridge";
 import {
   LAKE_CENTER,
   LAKE_RADIUS,
@@ -231,6 +232,10 @@ function nearestRoad(samples: RoadSample[], x: number, z: number) {
   return { dist: Math.sqrt(best), a };
 }
 
+/** Hatirjheel water around the bridge: no buildings at all. */
+const inWater = (near: { dist: number; a: number }) =>
+  near.a > WATER.from && near.a < WATER.to && near.dist < WATER.halfWidth;
+
 const inHatirjheel = (near: { dist: number; a: number }) =>
   near.a > HATIRJHEEL.from && near.a < HATIRJHEEL.to && near.dist < HATIRJHEEL.clearance;
 
@@ -295,6 +300,7 @@ const WINDOW_LIT_P = 0.55;
 export function generateCity(seed = 1971): CityBuffers {
   const rand = mulberry32(seed);
   // Separate stream so windows never change the building layout.
+  const scratch = new LineWriter();
   const winRand = mulberry32(seed + 1);
   const win = new WindowWriter(winRand, ABOUT_TIMING.offFrom, ABOUT_TIMING.offTo);
   const w = new LineWriter();
@@ -336,6 +342,9 @@ export function generateCity(seed = 1971): CityBuffers {
       const z = p.z + rz * off * side;
 
       if (isReserved(x, z)) continue;
+      // Over the water: still draw the same random numbers (into a scratch
+      // writer) so every building after this one keeps its place.
+      const water = inWater({ dist: off, a });
       // Keep content lots empty (with the building's own half width as margin).
       const halfA = width / 2 / ROAD_LENGTH;
       if (
@@ -352,7 +361,8 @@ export function generateCity(seed = 1971): CityBuffers {
       const floors = low ? 1 + Math.floor(r * 3) : bazaar ? 3 + Math.floor(r * 3) : 5 + Math.floor(r * 6);
       const yaw = Math.atan2(t.x, t.z);
       // local Z runs along the road: width along Z, depth along X.
-      const fp = addBuilding(w, rand, x, z, depth, width, floors, yaw, true);
+      const fp = addBuilding(water ? scratch : w, rand, x, z, depth, width, floors, yaw, true);
+      if (water) continue;
       fp.frontage = { a, side: side as 1 | -1, facade: off - depth / 2, halfWidth: width / 2 };
       footprints.push(fp);
       // Road-facing wall: local +X * side points at the road.
@@ -372,6 +382,7 @@ export function generateCity(seed = 1971): CityBuffers {
       const near = nearestRoad(samples, x, z);
       if (near.dist < ROAD_HALF_WIDTH + SIDEWALK + 28) continue;
       if (isReserved(x, z)) continue;
+      if (inWater(near)) continue;
 
       // Sizes and jitter keep a 1-5 m gap between neighbours, never overlapping.
       const width = 7 + rand() * 3;
