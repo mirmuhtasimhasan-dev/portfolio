@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
   AdditiveBlending,
@@ -19,6 +19,7 @@ import {
   type Group,
   type LineBasicMaterial,
   type LineSegments,
+  type Mesh,
   type MeshBasicMaterial,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -28,6 +29,8 @@ import {
   ABOUT_WINDOW,
   BALCONY_DEPTH,
   CREDENTIAL_FLOOR_COUNT,
+  CREDENTIAL_LIP,
+  SITE_BOARD,
   CREDENTIALS_LOT,
   FLOOR_HEIGHT,
   FOUNDATION_HEIGHT,
@@ -36,7 +39,11 @@ import {
   type ContentLot,
 } from "@/lib/contentBuildings";
 import { getDhakaHouse } from "@/lib/dhakaHouse";
-import { aboutCardEls, credentialLabelEls } from "@/lib/labelStore";
+import { aboutCardEls } from "@/lib/labelStore";
+import { CREDENTIALS, PERSON } from "@/lib/content";
+import { ROAD_LENGTH, roadFrame, sampleCamera } from "@/lib/paths";
+import { sectionIndex } from "@/lib/sections";
+import { Line, Text } from "@react-three/drei";
 import { palette } from "@/lib/palette";
 import { scrollStore } from "@/lib/scrollStore";
 import {
@@ -51,11 +58,20 @@ import {
   aboutLine2,
   aboutPhase,
   aboutTyped,
+  buildStatus,
   cityLit,
   credentialsPhase,
   floorLight,
   smoothstep,
 } from "@/lib/timeline";
+
+const FONT = "/fonts/geist-mono-600.woff";
+const rectPoints = (w: number, h: number): [number, number, number][] => [
+  [-w / 2, -h / 2, 0.01], [w / 2, -h / 2, 0.01],
+  [w / 2, -h / 2, 0.01], [w / 2, h / 2, 0.01],
+  [w / 2, h / 2, 0.01], [-w / 2, h / 2, 0.01],
+  [-w / 2, h / 2, 0.01], [-w / 2, -h / 2, 0.01],
+];
 
 // Content buildings are the only bright green buildings; their details are a
 // dimmer green so the outline still reads first.
@@ -380,12 +396,16 @@ function credentialSegments(lot: ContentLot): AnimatedSeg[] {
   const o = Math.sign(fx);
   const segs: AnimatedSeg[] = [];
   const { starts, draw } = CREDENTIALS_TIMING;
+  const lipX = fx + o * CREDENTIAL_LIP;
+  const lipZ0 = BANNER.z - BANNER.w / 2 - 0.4;
+  const lipZ1 = BANNER.z + BANNER.w / 2 + 0.4;
 
   for (let k = 0; k < CREDENTIAL_FLOOR_COUNT; k++) {
     const y0 = credentialFloorBase(k);
     const y1 = y0 + FLOOR_HEIGHT;
     const floor: [Vector3, Vector3][] = [];
-    // Corner posts grow upward, then the slab edges, then the windows.
+    // Corner posts grow upward, then the slab edges, then the windows,
+    // then the balcony edge the banner hangs from.
     for (const [x, z] of [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) {
       floor.push([new Vector3(x, y0, z), new Vector3(x, y1, z)]);
     }
@@ -409,6 +429,9 @@ function credentialSegments(lot: ContentLot): AnimatedSeg[] {
       ];
       for (let i = 0; i < 4; i++) floor.push([p[i], p[(i + 1) % 4]]);
     }
+    floor.push([new Vector3(fx, y1, lipZ0), new Vector3(lipX, y1, lipZ0)]);
+    floor.push([new Vector3(fx, y1, lipZ1), new Vector3(lipX, y1, lipZ1)]);
+    floor.push([new Vector3(lipX, y1, lipZ0), new Vector3(lipX, y1, lipZ1)]);
     const n = floor.length;
     floor.forEach(([a, b], i) => {
       const t0 = starts[k] + draw * (i / n) * 0.75;
@@ -418,14 +441,183 @@ function credentialSegments(lot: ContentLot): AnimatedSeg[] {
   return segs;
 }
 
+/** Banner hanging from each floor's balcony edge (lot-local units, metres). */
+// Offset toward the building's near end, so the signboard beside the far end stays clear.
+const BANNER = { w: 11, h: 1.55, drop: 0.12, z: -1.2 };
+
+type TroikaText = Mesh & { fillOpacity: number; text: string; color: Color | string; sync: () => void };
+
+/** A credential banner that unrolls down from the balcony edge as its floor lights. */
+function CredentialBanner({ k, lot }: { k: number; lot: ContentLot }) {
+  const o = Math.sign(lot.facadeX);
+  const roll = useRef<Group>(null);
+  const cloth = useRef<MeshBasicMaterial>(null);
+  const border = useRef<LineBasicMaterial>(null);
+  const year = useRef<TroikaText>(null);
+  const title = useRef<TroikaText>(null);
+  const item = CREDENTIALS[k];
+  const top = credentialFloorBase(k) + FLOOR_HEIGHT - BANNER.drop;
+
+  const outline = useMemo(() => {
+    const w = BANNER.w / 2;
+    const h = BANNER.h;
+    const g = new BufferGeometry();
+    g.setAttribute(
+      "position",
+      new BufferAttribute(
+        new Float32Array([-w, 0, 0.01, w, 0, 0.01, w, 0, 0.01, w, -h, 0.01, w, -h, 0.01, -w, -h, 0.01, -w, -h, 0.01, -w, 0, 0.01]),
+        3
+      )
+    );
+    return g;
+  }, []);
+  useLayoutEffect(() => () => outline.dispose(), [outline]);
+
+  useFrame(() => {
+    const on = floorLight(credentialsPhase(scrollStore.progress), k);
+    if (roll.current) {
+      roll.current.visible = on > 0.001;
+      roll.current.scale.y = Math.max(0.001, on);
+    }
+    if (cloth.current) cloth.current.opacity = 0.94 * on;
+    if (border.current) border.current.opacity = on;
+    if (year.current) year.current.fillOpacity = on;
+    if (title.current) title.current.fillOpacity = on;
+  });
+
+  return (
+    <group position={[lot.facadeX + o * CREDENTIAL_LIP, top, BANNER.z]} rotation={facadeRotation(lot)}>
+      {/* Two short cords from the balcony edge, then the cloth unrolling down. */}
+      <group ref={roll} visible={false}>
+        <mesh position-y={-BANNER.h / 2}>
+          <planeGeometry args={[BANNER.w, BANNER.h]} />
+          <meshBasicMaterial ref={cloth} color={palette.bgNight} transparent opacity={0} fog depthWrite={false} />
+        </mesh>
+        <lineSegments geometry={outline}>
+          <lineBasicMaterial ref={border} color={palette.green} transparent opacity={0} fog />
+        </lineSegments>
+        <Text
+          ref={year}
+          font={FONT}
+          fontSize={0.3}
+          color={palette.green}
+          anchorX="left"
+          anchorY="top"
+          position={[-BANNER.w / 2 + 0.35, -0.22, 0.02]}
+          letterSpacing={0.12}
+          fillOpacity={0}
+        >
+          {String(item.year)}
+        </Text>
+        <Text
+          ref={title}
+          font={FONT}
+          fontSize={0.42}
+          color={palette.text}
+          anchorX="left"
+          anchorY="top"
+          maxWidth={BANNER.w - 0.7}
+          position={[-BANNER.w / 2 + 0.35, -0.64, 0.02]}
+          fillOpacity={0}
+        >
+          {item.issuer ? `${item.title} · ${item.issuer}` : item.title}
+        </Text>
+      </group>
+    </group>
+  );
+}
+
+/** Dhaka-style construction signboard on legs, facing the Credentials camera. */
+function SiteBoard() {
+  const lot = CREDENTIALS_LOT;
+  const status = useRef<TroikaText>(null);
+  const shown = useRef("");
+  const { w, h, bottom } = SITE_BOARD;
+
+  const { position, yaw, legs } = useMemo(() => {
+    const a = lot.a + (lot.width / 2 - SITE_BOARD.alongFromEnd) / ROAD_LENGTH;
+    const pos = roadFrame(a, lot.side * SITE_BOARD.lateral, bottom + h / 2);
+    const cam = new Vector3();
+    const look = new Vector3();
+    sampleCamera(sectionIndex("credentials"), cam, look);
+    const y = Math.atan2(cam.x - pos.x, cam.z - pos.z);
+    const c = Math.cos(y);
+    const sn = Math.sin(y);
+    const pts: number[] = [];
+    for (const u of [-w * 0.38, w * 0.38]) {
+      const x = pos.x + u * c;
+      const z = pos.z - u * sn;
+      pts.push(x, 0, z, x, bottom + h * 0.85, z);
+    }
+    // Cross brace between the legs, like a bamboo frame.
+    pts.push(pos.x - w * 0.38 * c, 0.2, pos.z + w * 0.38 * sn, pos.x + w * 0.38 * c, bottom - 0.05, pos.z - w * 0.38 * sn);
+    const g = new BufferGeometry();
+    g.setAttribute("position", new BufferAttribute(new Float32Array(pts), 3));
+    return { position: pos, yaw: y, legs: g };
+  }, [lot, w, h, bottom]);
+  useLayoutEffect(() => () => legs.dispose(), [legs]);
+
+  useFrame(({ clock }) => {
+    const t = status.current;
+    if (!t) return;
+    const st = buildStatus(credentialsPhase(scrollStore.progress));
+    if (st.text !== shown.current) {
+      shown.current = st.text;
+      t.text = st.text;
+      t.color = st.done ? palette.green : palette.text;
+      t.sync();
+    }
+    t.fillOpacity = st.done ? 0.55 + 0.45 * (0.5 + 0.5 * Math.cos(clock.elapsedTime * 2.2)) : 1;
+  });
+
+  const rows: [string, string][] = [
+    ["PROJECT", "What I studied"],
+    ["DEVELOPER", PERSON.shortName],
+    ["STARTED", String(Math.min(...CREDENTIALS.map((c) => c.year)))],
+  ];
+  const rowY = (i: number) => h / 2 - 0.7 - i * 0.95;
+  const labelX = -w / 2 + 0.45;
+  const valueX = -w / 2 + 2.9;
+
+  return (
+    <group>
+      <lineSegments geometry={legs}>
+        <lineBasicMaterial color={palette.lineBase} fog />
+      </lineSegments>
+      {/* Drawn over the building's corner lines so they never cross the board's text. */}
+      <group position={position} rotation-y={yaw}>
+        <mesh renderOrder={20}>
+          <planeGeometry args={[w, h]} />
+          <meshBasicMaterial color={palette.bgNight} fog depthTest={false} />
+        </mesh>
+        <Line points={rectPoints(w, h)} segments lineWidth={1.4} color={palette.green} depthTest={false} renderOrder={21} />
+        {rows.map(([label, value], i) => (
+          <group key={label}>
+            <Text renderOrder={22} material-depthTest={false} font={FONT} fontSize={0.32} letterSpacing={0.08} color={palette.text2} anchorX="left" anchorY="middle" position={[labelX, rowY(i), 0.02]}>
+              {label}
+            </Text>
+            <Text renderOrder={22} material-depthTest={false} font={FONT} fontSize={0.52} color={palette.text} anchorX="left" anchorY="middle" whiteSpace="nowrap" position={[valueX, rowY(i), 0.02]}>
+              {value}
+            </Text>
+          </group>
+        ))}
+        <Line points={[[-w / 2 + 0.3, rowY(2) - 0.48, 0.02], [w / 2 - 0.3, rowY(2) - 0.48, 0.02]]} lineWidth={1} color={palette.lineBase} depthTest={false} renderOrder={21} />
+        <Text renderOrder={22} material-depthTest={false} font={FONT} fontSize={0.32} letterSpacing={0.08} color={palette.text2} anchorX="left" anchorY="middle" position={[labelX, rowY(3), 0.02]}>
+          STATUS
+        </Text>
+        <Text ref={status} renderOrder={22} material-depthTest={false} font={FONT} fontSize={0.52} color={palette.text} anchorX="left" anchorY="middle" whiteSpace="nowrap" position={[valueX, rowY(3), 0.02]}>
+          Foundation
+        </Text>
+      </group>
+    </group>
+  );
+}
+
 function CredentialsBuilding() {
   const lot = CREDENTIALS_LOT;
   const o = Math.sign(lot.facadeX);
   const bands = useRef<(MeshBasicMaterial | null)[]>([]);
   const rings = useRef<(LineBasicMaterial | null)[]>([]);
-  const group = useRef<Group>(null);
-  const camera = useThree((st) => st.camera);
-  const size = useThree((st) => st.size);
   const lastQ = useRef(Number.NaN);
   const drawnLines = useRef<LineSegments>(null);
 
@@ -467,16 +659,6 @@ function CredentialsBuilding() {
     [foundation, drawn, ringGeo]
   );
 
-  const anchors = useMemo(
-    () =>
-      Array.from(
-        { length: CREDENTIAL_FLOOR_COUNT },
-        (_, k) => new Vector3(lot.facadeX + o * 0.5, credentialFloorBase(k) + FLOOR_HEIGHT / 2, lot.width / 2)
-      ),
-    [lot, o]
-  );
-  const tmp = useMemo(() => new Vector3(), []);
-
   useFrame(() => {
     const q = credentialsPhase(scrollStore.progress);
 
@@ -497,69 +679,64 @@ function CredentialsBuilding() {
       geo.attributes.position.needsUpdate = true;
     }
 
-    const labelOut = 1 - smoothstep(1.05, 1.3, q);
     for (let k = 0; k < CREDENTIAL_FLOOR_COUNT; k++) {
       const on = floorLight(q, k);
       const band = bands.current[k];
-      if (band) band.opacity = on * 0.2;
+      if (band) band.opacity = on * 0.12;
       const ring = rings.current[k];
       if (ring) ring.opacity = on;
-      const label = credentialLabelEls[k];
-      if (label && group.current) {
-        tmp.copy(anchors[k]);
-        group.current.localToWorld(tmp).project(camera);
-        const vis = tmp.z < 1 ? on * labelOut : 0;
-        label.style.opacity = vis.toFixed(3);
-        label.style.visibility = vis < 0.01 ? "hidden" : "visible";
-        if (vis >= 0.01) {
-          const x = (tmp.x * 0.5 + 0.5) * size.width;
-          const y = (-tmp.y * 0.5 + 0.5) * size.height;
-          label.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translateY(-50%)`;
-        }
-      }
     }
   });
 
   return (
-    <group ref={group} position={lot.position} rotation-y={lot.yaw}>
-      <lineSegments geometry={foundation}>
-        <lineBasicMaterial color={palette.green} fog />
-      </lineSegments>
-      <lineSegments ref={drawnLines} geometry={drawn} frustumCulled={false}>
-        <lineBasicMaterial color={palette.green} fog />
-      </lineSegments>
-      {Array.from({ length: CREDENTIAL_FLOOR_COUNT }, (_, k) => {
-        const y = credentialFloorBase(k);
-        return (
-          <group key={k}>
-            <lineSegments geometry={ringGeo} position-y={y}>
-              <lineBasicMaterial
-                ref={(m) => {
-                  rings.current[k] = m;
-                }}
-                color={palette.green}
-                transparent
-                opacity={0}
-                fog
-              />
-            </lineSegments>
-            <mesh position={[lot.facadeX + o * 0.06, y + FLOOR_HEIGHT / 2, 0]} rotation={facadeRotation(lot)}>
-              <planeGeometry args={[lot.width * 0.94, FLOOR_HEIGHT * 0.7]} />
-              <meshBasicMaterial
-                ref={(m) => {
-                  bands.current[k] = m;
-                }}
-                color={palette.green}
-                transparent
-                opacity={0}
-                fog
-                depthWrite={false}
-              />
-            </mesh>
-          </group>
-        );
-      })}
-    </group>
+    <>
+      <group position={lot.position} rotation-y={lot.yaw}>
+        <lineSegments geometry={foundation}>
+          <lineBasicMaterial color={palette.green} fog />
+        </lineSegments>
+        <lineSegments ref={drawnLines} geometry={drawn} frustumCulled={false}>
+          <lineBasicMaterial color={palette.green} fog />
+        </lineSegments>
+        {Array.from({ length: CREDENTIAL_FLOOR_COUNT }, (_, k) => {
+          const y = credentialFloorBase(k);
+          return (
+            <group key={k}>
+              <lineSegments geometry={ringGeo} position-y={y}>
+                <lineBasicMaterial
+                  ref={(m) => {
+                    rings.current[k] = m;
+                  }}
+                  color={palette.green}
+                  transparent
+                  opacity={0}
+                  fog
+                />
+              </lineSegments>
+              <mesh position={[lot.facadeX + o * 0.06, y + FLOOR_HEIGHT / 2, 0]} rotation={facadeRotation(lot)}>
+                <planeGeometry args={[lot.width * 0.94, FLOOR_HEIGHT * 0.7]} />
+                <meshBasicMaterial
+                  ref={(m) => {
+                    bands.current[k] = m;
+                  }}
+                  color={palette.green}
+                  transparent
+                  opacity={0}
+                  fog
+                  depthWrite={false}
+                />
+              </mesh>
+              {/* Text loads a font; never let it suspend the whole canvas. */}
+              <Suspense fallback={null}>
+                <CredentialBanner k={k} lot={lot} />
+              </Suspense>
+            </group>
+          );
+        })}
+      </group>
+      <Suspense fallback={null}>
+        <SiteBoard />
+      </Suspense>
+    </>
   );
 }
 

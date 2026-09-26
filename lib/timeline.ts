@@ -121,3 +121,11 @@ export function flickerPattern(seed: number): number[] {
 
 /** After "I never put it down." is in, the cursor moves to the end of that line. */
 export const aboutCursorOnLastLine = (p: number) => p >= ABOUT_TIMING.line2To;
+
+/** Construction board STATUS from the build: floors completed so far. */
+export function buildStatus(q: number): { text: string; done: boolean } {
+  const { starts, draw } = CREDENTIALS_TIMING;
+  const done = starts.filter((s) => q >= s + draw).length;
+  if (done >= starts.length) return { text: "Still building", done: true };
+  return { text: done === 0 ? "Foundation" : `Floor ${done}`, done: false };
+}

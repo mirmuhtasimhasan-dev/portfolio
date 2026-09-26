@@ -3,8 +3,6 @@
  * scene each frame (projected anchor points). The scene writes transform,
  * opacity and text; React only renders them once.
  */
-export const credentialLabelEls: (HTMLDivElement | null)[] = [];
-
 /** The About card attached to the lit window, and its leader line. */
 export const aboutCardEls: {
   root: HTMLDivElement | null;

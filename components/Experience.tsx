@@ -7,7 +7,6 @@ import { SmoothScroll } from "./SmoothScroll";
 import { Overlays, type OverlaysHandle } from "./Overlays";
 import { DebugOverlay } from "./DebugOverlay";
 import { Nav } from "./Nav";
-import { CredentialLabels } from "./CredentialLabels";
 import { AboutCard } from "./AboutCard";
 import { TRACK_ID, TRACK_VH } from "@/lib/sections";
 import { ToolTooltip } from "./ToolTooltip";
@@ -43,7 +42,6 @@ export function Experience() {
       <div className="fixed inset-0 z-0">
         <Scene onCut={onCut} />
       </div>
-      <CredentialLabels />
       <AboutCard />
       <ToolTooltip />
       <Overlays ref={overlays} />

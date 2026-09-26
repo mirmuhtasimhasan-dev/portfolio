@@ -43,7 +43,11 @@ function makeLot(
   width: number,
   depth: number,
   floors: number,
-  { setback = 0, top = floors * FLOOR_HEIGHT }: { setback?: number; top?: number } = {}
+  {
+    setback = 0,
+    top = floors * FLOOR_HEIGHT,
+    extraAfter = 0,
+  }: { setback?: number; top?: number; extraAfter?: number } = {}
 ): ContentLot {
   const p = roadCurve.getPointAt(a);
   const t = roadCurve.getTangentAt(a);
@@ -66,7 +70,7 @@ function makeLot(
     setback,
     top,
     aFrom: a - half,
-    aTo: a + half,
+    aTo: a + half + extraAfter / ROAD_LENGTH,
   };
 }
 
@@ -81,12 +85,25 @@ export const ABOUT_LOT = makeLot("about", 0.214, 1, 13, 14, ABOUT_FLOORS, {
   top: ABOUT_FLOORS * FLOOR_HEIGHT + 3.2,
 });
 
-/** Credentials: foundation plus one floor per credential. */
+/**
+ * Credentials: foundation plus one floor per credential. Set back from the
+ * sidewalk so the construction signboard stands in a front yard, and so the
+ * balcony edges the banners hang from stay behind the sidewalk line.
+ */
 export const FOUNDATION_HEIGHT = 0.6;
 export const CREDENTIAL_FLOOR_COUNT = 3;
+export const CREDENTIALS_SETBACK = 3;
+/** How far each floor's balcony edge sticks out from the facade. */
+export const CREDENTIAL_LIP = 0.9;
 export const CREDENTIALS_LOT = makeLot("credentials", 0.326, -1, 15, 14, CREDENTIAL_FLOOR_COUNT, {
+  setback: CREDENTIALS_SETBACK,
   top: FOUNDATION_HEIGHT + CREDENTIAL_FLOOR_COUNT * FLOOR_HEIGHT,
+  // An empty plot after the building (road side) for the construction signboard.
+  extraAfter: 8,
 });
+
+/** Construction signboard on the empty plot beside the building, toward the road. */
+export const SITE_BOARD = { w: 7.6, h: 4.4, bottom: 1.4, lateral: 12.6, alongFromEnd: -7 };
 export const credentialFloorBase = (k: number) => FOUNDATION_HEIGHT + k * FLOOR_HEIGHT;
 
 export const CONTENT_LOTS = [ABOUT_LOT, CREDENTIALS_LOT];

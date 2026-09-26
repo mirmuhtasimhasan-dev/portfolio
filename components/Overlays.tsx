@@ -76,12 +76,12 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
       // The About text lives in the card attached to the lit window (AboutCard).
       return null;
     case "credentials":
+      // Shown on the construction signboard and the floor banners (3D);
+      // this copy is for screen readers.
       return (
-        <Scrimmed className="max-w-sm">
-          <Eyebrow index={index} label="Credentials" />
-          <h2 className="text-3xl font-semibold tracking-tight text-text sm:text-4xl">What I studied</h2>
-          {/* The visible labels are on the building's floors; this list is for screen readers. */}
-          <ul className="sr-only">
+        <div className="sr-only">
+          <h2>Credentials: what I studied</h2>
+          <ul>
             {CREDENTIALS.map((c) => (
               <li key={c.title}>
                 {c.title}
@@ -89,7 +89,7 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
               </li>
             ))}
           </ul>
-        </Scrimmed>
+        </div>
       );
     case "toolset":
       return (

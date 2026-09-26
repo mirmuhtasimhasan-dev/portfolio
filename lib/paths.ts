@@ -63,7 +63,8 @@ const KEYS: Key[] = [
   { stop: 1, pos: roadFrame(0.18, 0, EYE), look: roadFrame(0.215, 12, EYE) },
   { pos: roadFrame(0.245, 0, EYE), look: roadFrame(0.33, 0, EYE) },
   // 2 Credentials: road center, the next building ahead on the left.
-  { stop: 2, pos: roadFrame(0.29, 0, EYE), look: roadFrame(0.325, -12, EYE) },
+  // Framed so every floor banner and the signboard beside it are in view.
+  { stop: 2, pos: roadFrame(0.29, 0, EYE), look: roadFrame(0.32, -14, EYE + 1) },
   { pos: roadFrame(0.36, 0, EYE), look: roadFrame(0.46, 0, EYE) },
   // 3 Toolset: looking down the bazaar street.
   // Look slightly up so the rooftop boards of the Server roof stay in frame.

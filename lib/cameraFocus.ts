@@ -11,7 +11,7 @@ import { aboutPhase, aboutPush } from "./timeline";
  */
 
 /** How far the camera eases toward the last lit window in About (metres). */
-export const ABOUT_PUSH_DISTANCE = 3;
+export const ABOUT_PUSH_DISTANCE = 2.6;
 /** How much the look target turns toward the window at full push. */
 const ABOUT_LOOK_BLEND = 0.5;
 
