@@ -104,6 +104,16 @@ function sliceAt(pos: ArrayLike<number>, h: number, out: number[]) {
   }
 }
 
+/*
+ * East facade triangle cut-out (model space, from the Blender file): east
+ * block at (63.14, 16.76, -2.61); triangle from local y -15.56 to -10.46,
+ * z +-10.3; back wall at local x 6.46, facade front at 8.44.
+ */
+const EAST_BACK_X = 63.144 + 6.46;
+const inTriangleRecess = (p: ArrayLike<number>, i: number) =>
+  p[i + 1] > 16.76 - 15.6 && p[i + 1] < 16.76 - 10.4 && Math.abs(p[i + 2] + 2.6) < 10.4 && p[i] > EAST_BACK_X - 0.05;
+const atBackWall = (p: ArrayLike<number>, i: number) => Math.abs(p[i] - EAST_BACK_X) < 0.05;
+
 function buildSangsadParts(root: Object3D): SangsadParts {
   root.updateMatrixWorld(true);
   const fills: BufferGeometry[] = [];
@@ -118,7 +128,14 @@ function buildSangsadParts(root: Object3D): SangsadParts {
     g.deleteAttribute("uv");
     fills.push(g);
     const edges = new EdgesGeometry(g, EDGE_ANGLE);
-    edgeArr.push(...(edges.attributes.position.array as Float32Array));
+    const e = edges.attributes.position.array as Float32Array;
+    const isEast = /East/.test(mesh.name);
+    for (let i = 0; i < e.length; i += 6) {
+      // The east triangle cut-out reads as one shape: skip its back-wall
+      // outline and the short depth edges that join it to the front.
+      if (isEast && inTriangleRecess(e, i) && inTriangleRecess(e, i + 3) && (atBackWall(e, i) || atBackWall(e, i + 3))) continue;
+      edgeArr.push(e[i], e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]);
+    }
     edges.dispose();
     // Marble strips: slice this mass every 1.5 m.
     const soup = g.index ? g.toNonIndexed() : g;
