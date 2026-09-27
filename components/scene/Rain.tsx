@@ -14,6 +14,8 @@ import {
 import { palette } from "@/lib/palette";
 import { mulberry32 } from "@/lib/random";
 import { FOG_DENSITY } from "./fog";
+import { scrollStore } from "@/lib/scrollStore";
+import { contactPhase, rainAmount } from "@/lib/timeline";
 
 /*
  * Light rain: thin diagonal streaks in a box that travels with the camera,
@@ -132,6 +134,10 @@ export function Rain({ count }: { count: number }) {
     if (!l) return;
     const u = (l.material as ShaderMaterial).uniforms;
     u.uTime.value = clock.elapsedTime;
+    // Rain stops as the camera reaches the Contact sunrise.
+    const k = rainAmount(contactPhase(scrollStore.progress));
+    u.uOpacity.value = 0.2 * k;
+    l.visible = k > 0.002;
     (u.uCam.value as Vector3).copy(camera.position);
   });
 

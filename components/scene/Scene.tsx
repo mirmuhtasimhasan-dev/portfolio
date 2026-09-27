@@ -15,6 +15,7 @@ import { CityWindows } from "./CityWindows";
 import { RedHints } from "./RedHints";
 import { NeonBazaar } from "./NeonBazaar";
 import { Hatirjheel } from "./Hatirjheel";
+import { Landmarks } from "./Landmarks";
 import { FOG_DENSITY } from "./fog";
 
 type Props = {
@@ -59,7 +60,7 @@ export default function Scene({ onCut }: Props) {
         camera={{ fov: 55, near: 2, far: 1400, position: [0, 80, 108] }}
       >
         <Selection>
-        <color attach="background" args={[palette.bgNight]} />
+        {/* Background is the shared SKY colour (set by Landmarks' SkyShift). */}
         <fogExp2 attach="fog" args={[palette.bgNight, FOG_DENSITY]} />
         <City />
         <Road />
@@ -73,6 +74,7 @@ export default function Scene({ onCut }: Props) {
           <NeonBazaar />
         </Suspense>
         <Hatirjheel />
+        <Landmarks />
         <CameraRig onCut={onCut} />
         {quality.bloom && (
           // Only bright things cross the threshold: neon, lamps, lit windows,

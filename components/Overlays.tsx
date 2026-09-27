@@ -4,6 +4,7 @@ import { forwardRef, useImperativeHandle, useRef, type ReactNode } from "react";
 import { SECTIONS, type SectionId } from "@/lib/sections";
 import { scrollStore } from "@/lib/scrollStore";
 import { sectionOpacity } from "@/lib/stopMap";
+import { contactPhase, contactText } from "@/lib/timeline";
 import { CREDENTIALS, PERSON } from "@/lib/content";
 import { FEATURED } from "@/lib/bridge";
 import { ContactPanel } from "./ContactPanel";
@@ -53,7 +54,7 @@ const LAYOUT: Record<SectionId, string> = {
   toolset: "items-start justify-center text-center pt-[12vh]",
   gali: "items-start justify-center text-center pt-[12vh]",
   roof: "items-end justify-center text-center pb-[10vh]",
-  contact: "items-center justify-center pt-12",
+  contact: "items-end justify-center pb-[5vh]",
 };
 
 function SectionBody({ id, index }: { id: SectionId; index: number }) {
@@ -156,9 +157,11 @@ export const Overlays = forwardRef<OverlaysHandle>(function Overlays(_, ref) {
   useImperativeHandle(ref, () => ({
     update() {
       const s = scrollStore.stop;
+      const contactReveal = contactText(contactPhase(scrollStore.progress));
       panels.current.forEach((el, i) => {
         if (!el) return;
-        const o = sectionOpacity(s, i);
+        // Contact: "Say hello" and the form wait for the sunrise.
+        const o = sectionOpacity(s, i) * (SECTIONS[i].id === "contact" ? contactReveal : 1);
         const y = Math.max(-1, Math.min(1, i - s)) * 40;
         el.style.opacity = o.toFixed(3);
         el.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0)`;

@@ -21,7 +21,8 @@ export const scrollNav = [
   {
     label: "Contact",
     target: sectionIndex("contact"),
-    phase: 0.5,
+    // Lands after the sunrise, with the form showing.
+    phase: 0.95,
     sections: [sectionIndex("contact")],
   },
 ];

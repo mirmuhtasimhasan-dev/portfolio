@@ -21,7 +21,8 @@ export const SECTIONS: Section[] = [
   { id: "roof", label: "Toolset: Server roof", weight: 1.1, num: 4 },
   { id: "projects", label: "Projects", weight: 1, num: 5 },
   ...FEATURED.map((p) => ({ id: projectSectionId(p.slug), label: `Projects: ${p.name}`, weight: 1, num: 5 })),
-  { id: "contact", label: "Contact", weight: 1, num: 6 },
+  // Contact plays the sunrise in its hold, then the form: more scroll.
+  { id: "contact", label: "Contact", weight: 1.6, num: 6 },
 ];
 
 export type SectionId = string;

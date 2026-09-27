@@ -65,7 +65,8 @@ const KEYS: Key[] = [
   {
     stop: sectionIndex("contact"),
     pos: roadFrame(0.965, 0, 6),
-    look: SANGSAD_POSITION.clone().setY(16),
+    // Aimed low so the building and the sun sit in the upper half, above the form.
+    look: SANGSAD_POSITION.clone().setY(-12),
   },
 ];
 

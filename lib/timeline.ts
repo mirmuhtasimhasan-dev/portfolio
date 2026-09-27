@@ -102,9 +102,13 @@ export function horizonGlow(progress: number) {
   // Linear light: 0.008 reads as a faint hint after sRGB encoding (0.03 was
   // already a clear red band on screen).
   const bridge = 0.008;
-  let v = street + (bridge - street) * smoothstep(P - 0.6, P + 0.2, s);
-  v += (0.6 - v) * smoothstep(C - 0.6, C, s);
-  return redGate(progress) * v;
+  const v = street + (bridge - street) * smoothstep(P - 0.6, P + 0.2, s);
+  // At Contact the glow follows the sun: it peaks exactly as the sun clears
+  // the horizon, then settles as the dawn sky takes over.
+  const r = sunRise(contactPhase(progress));
+  const sunrise = r < SUN_HORIZON ? 0.42 * smoothstep(0, SUN_HORIZON, r) : 0.42 - 0.22 * smoothstep(SUN_HORIZON, 1, r);
+  const k = smoothstep(C - 0.9, C - 0.4, s);
+  return redGate(progress) * (v * (1 - k) + sunrise * k);
 }
 
 /* ---------- Toolset: Neon Bazaar ---------- */
@@ -143,3 +147,33 @@ export function buildStatus(q: number): { text: string; done: boolean } {
   if (done >= starts.length) return { text: "Still building", done: true };
   return { text: done === 0 ? "Foundation" : `Floor ${done}`, done: false };
 }
+
+/* ---------- Contact: sunrise over Sangsad Bhaban ---------- */
+
+const CONTACT = sectionIndex("contact");
+export const contactPhase = (progress: number) => sectionPhase(progress, CONTACT);
+
+export const CONTACT_TIMING = {
+  /** Sun from below the horizon to its final height behind the building. */
+  sunFrom: -0.3,
+  sunTo: 0.55,
+  /** Sky bg-night to bg-dawn. */
+  dawnFrom: -0.2,
+  dawnTo: 0.6,
+  /** Stars and rain fade out as the camera arrives. */
+  starsFrom: -0.5,
+  starsTo: 0.25,
+  rainFrom: -0.6,
+  rainTo: 0.05,
+  /** Then "Say hello" and the form. */
+  textFrom: 0.62,
+  textTo: 0.8,
+};
+const CT = CONTACT_TIMING;
+/** Sun height fraction at which the disc's centre crosses the horizon. */
+export const SUN_HORIZON = 0.4;
+export const sunRise = (p: number) => smoothstep(CT.sunFrom, CT.sunTo, p);
+export const dawnAmount = (p: number) => smoothstep(CT.dawnFrom, CT.dawnTo, p);
+export const starsAmount = (p: number) => 1 - smoothstep(CT.starsFrom, CT.starsTo, p);
+export const rainAmount = (p: number) => 1 - smoothstep(CT.rainFrom, CT.rainTo, p);
+export const contactText = (p: number) => smoothstep(CT.textFrom, CT.textTo, p);

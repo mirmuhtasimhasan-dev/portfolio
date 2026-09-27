@@ -1,9 +1,9 @@
 "use client";
 
 import { useLayoutEffect, useMemo } from "react";
-import { BufferAttribute, BufferGeometry, Color, ShaderMaterial } from "three";
+import { BufferAttribute, BufferGeometry, ShaderMaterial } from "three";
 import { getCity } from "@/lib/city";
-import { palette } from "@/lib/palette";
+import { SKY } from "@/lib/sky";
 import { FOG_DENSITY } from "./fog";
 
 // Floor lines and rooftop details fade out between these distances (metres).
@@ -57,7 +57,8 @@ export function City() {
       vertexShader,
       fragmentShader,
       uniforms: {
-        uFogColor: { value: new Color(palette.bgNight) },
+        // Shared with the scene: follows the night-to-dawn shift at Contact.
+        uFogColor: { value: SKY },
         uFogDensity: { value: FOG_DENSITY },
         uDetailNear: { value: DETAIL_NEAR },
         uDetailFar: { value: DETAIL_FAR },
