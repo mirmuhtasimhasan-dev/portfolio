@@ -1,16 +1,18 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Select } from "@react-three/postprocessing";
+import { useGLTF } from "@react-three/drei";
 import {
   AdditiveBlending,
-  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  EdgesGeometry,
+  MeshBasicMaterial,
+  type Object3D,
   Color,
-  CylinderGeometry,
   FogExp2,
   Plane,
   Vector3,
@@ -18,7 +20,6 @@ import {
   type LineBasicMaterial,
   type LineSegments,
   type Mesh,
-  type MeshBasicMaterial,
   type Points,
   type PointsMaterial,
 } from "three";
@@ -37,10 +38,7 @@ import { FOG_DENSITY } from "./fog";
 /*
  * Phase 6 landmarks:
  *  - Sangsad Bhaban, the Contact finale: Louis Kahn's National Assembly,
- *    built from primitives. A tall octagonal assembly block ringed by eight
- *    lower blocks, the great circular and triangular cut-outs in their
- *    facades, standing on a plinth in a lake. Green wireframe edges over a
- *    dark fill (the fill hides the sun behind it).
+ *    from the Blender model (see below), standing in the lake.
  *  - The lake: the building mirrored in the water, ripples, and a red
  *    shimmer under the rising sun.
  *  - The sun (#F43F5E) rising behind it, the sky shifting night to dawn,
@@ -66,202 +64,133 @@ function useLines(arr: number[]) {
 const ROAD_END = roadCurve.getPointAt(1);
 const CONTACT_CAM = roadFrame(0.965, 0, 6);
 const TO_BUILDING = new Vector3().subVectors(SANGSAD_POSITION, CONTACT_CAM).setY(0).normalize();
-/** Building yaw: its main face (local +Z) looks back at the Contact stop. */
-const SANGSAD_YAW = Math.atan2(-TO_BUILDING.x, -TO_BUILDING.z);
 const WATER_Y = -0.4;
 
 /* ------------------------------------------------------------------ */
 /* Sangsad Bhaban                                                      */
 /* ------------------------------------------------------------------ */
 
-const OCT_R = 19;
-const OCT_H = 46;
-const RING_R = 42;
+/*
+ * The building is a Blender model (public/models/sangsad-bhaban.glb):
+ * metres, origin at the octagon centre, detailed facade facing +X. Drawn as
+ * crease edges (20 degrees) in green over faces filled with the live sky
+ * colour, so back lines stay hidden and the sun sets behind the octagon.
+ * Thin horizontal lines every 1.5 m around every mass read as the marble
+ * strips in Kahn's concrete.
+ */
+const MODEL_URL = "/models/sangsad-bhaban.glb";
+/** Fits the finale framing (the model is ~150 m across, 47 m to the top). */
+const MODEL_SCALE = 0.72;
+/** Turns the model's +X facade toward the Contact camera across the lake. */
+const MODEL_YAW = Math.atan2(TO_BUILDING.z, -TO_BUILDING.x);
+const EDGE_ANGLE = 20;
+const BAND_STEP = 1.5;
 
-type Block = { angle: number; w: number; d: number; h: number; kind: "circle" | "triangle" };
+type SangsadParts = { fills: BufferGeometry[]; edges: BufferGeometry; bands: BufferGeometry };
 
-// Eight peripheral blocks around the octagon, alternating the two motifs Kahn
-// cut into the facades: great circles and great triangles.
-const BLOCKS: Block[] = Array.from({ length: 8 }, (_, i) => ({
-  angle: (Math.PI / 4) * i + Math.PI / 8,
-  w: i % 2 === 0 ? 17 : 15,
-  d: i % 2 === 0 ? 15 : 13,
-  h: i % 2 === 0 ? 33 : 27,
-  kind: i % 2 === 0 ? "circle" : "triangle",
-}));
-
-/** Local frame of a block: its outward face normal and across direction. */
-function blockFrame(b: Block) {
-  const n = [Math.sin(b.angle), 0, Math.cos(b.angle)];
-  const t = [Math.cos(b.angle), 0, -Math.sin(b.angle)];
-  const c = [n[0] * RING_R, 0, n[2] * RING_R];
-  // p(u, v, w): u across the face, v up, w outward from the block center.
-  return (u: number, v: number, w: number) => [c[0] + t[0] * u + n[0] * w, v, c[2] + t[2] * u + n[2] * w];
-}
-
-function buildSangsad() {
-  const edges: Seg = [];
-  const detail: Seg = [];
-
-  // Plinth in the lake: a low, wide octagon.
-  const plinth = (r: number, y: number) =>
-    Array.from({ length: 8 }, (_, k) => {
-      const a = (Math.PI / 4) * k + Math.PI / 8;
-      return [Math.sin(a) * r, y, Math.cos(a) * r];
-    });
-  const p0 = plinth(64, 0);
-  const p1 = plinth(64, 2.2);
-  for (let k = 0; k < 8; k++) {
-    pushSeg(detail, p0[k], p0[(k + 1) % 8]);
-    pushSeg(edges, p1[k], p1[(k + 1) % 8]);
-    pushSeg(detail, p0[k], p1[k]);
-  }
-
-  // Central octagonal assembly block, with a crown ring near the top.
-  const oct = (y: number, r = OCT_R) =>
-    Array.from({ length: 8 }, (_, k) => {
-      const a = (Math.PI / 4) * k;
-      return [Math.sin(a) * r, y, Math.cos(a) * r];
-    });
-  const ob = oct(2.2);
-  const ot = oct(OCT_H);
-  const oc = oct(OCT_H - 5);
-  for (let k = 0; k < 8; k++) {
-    const n = (k + 1) % 8;
-    pushSeg(edges, ob[k], ot[k]);
-    pushSeg(edges, ot[k], ot[n]);
-    pushSeg(detail, oc[k], oc[n]);
-    // Tall slot openings high on each octagon face, above the ring blocks.
-    const mid = (y: number, f: number) => [
-      ob[k][0] + (ob[n][0] - ob[k][0]) * f,
-      y,
-      ob[k][2] + (ob[n][2] - ob[k][2]) * f,
-    ];
-    for (const f of [0.3, 0.7]) pushSeg(detail, mid(31, f), mid(OCT_H - 7, f));
-    pushSeg(detail, mid(31, 0.3), mid(31, 0.7));
-  }
-
-  // Ring blocks with their cut-outs on the outward face.
-  for (const b of BLOCKS) {
-    const P = blockFrame(b);
-    const hw = b.w / 2;
-    const hd = b.d / 2;
-    const corners = [
-      [-hw, -hd],
-      [hw, -hd],
-      [hw, hd],
-      [-hw, hd],
-    ];
-    for (let k = 0; k < 4; k++) {
-      const [u0, w0] = corners[k];
-      const [u1, w1] = corners[(k + 1) % 4];
-      pushSeg(edges, P(u0, 2.2, w0), P(u1, 2.2, w0 === w1 ? w1 : w1));
-      pushSeg(edges, P(u0, b.h, w0), P(u1, b.h, w1));
-      pushSeg(edges, P(u0, 2.2, w0), P(u0, b.h, w0));
-    }
-    // Floor lines, faint.
-    for (let y = 9; y < b.h - 2; y += 7) pushSeg(detail, P(-hw, y, hd), P(hw, y, hd));
-
-    const face = hd + 0.05;
-    const cy = b.h * 0.55;
-    if (b.kind === "circle") {
-      // One great circle, and a smaller one below it.
-      for (const [r, y] of [
-        [b.w * 0.32, cy + 2],
-        [b.w * 0.12, 7],
-      ] as const) {
-        let prev = P(r, y, face);
-        for (let s = 1; s <= 40; s++) {
-          const t = (s / 40) * Math.PI * 2;
-          const p = P(Math.cos(t) * r, y + Math.sin(t) * r, face);
-          pushSeg(edges, prev, p);
-          prev = p;
-        }
+/** Segments where the plane y = h cuts a triangle soup (non-indexed positions). */
+function sliceAt(pos: ArrayLike<number>, h: number, out: number[]) {
+  for (let i = 0; i < pos.length; i += 9) {
+    const pts: number[][] = [];
+    for (let k = 0; k < 3; k++) {
+      const a = [pos[i + k * 3], pos[i + k * 3 + 1], pos[i + k * 3 + 2]];
+      const b = [pos[i + ((k + 1) % 3) * 3], pos[i + ((k + 1) % 3) * 3 + 1], pos[i + ((k + 1) % 3) * 3 + 2]];
+      if ((a[1] - h) * (b[1] - h) < 0) {
+        const t = (h - a[1]) / (b[1] - a[1]);
+        pts.push([a[0] + (b[0] - a[0]) * t, h, a[2] + (b[2] - a[2]) * t]);
       }
-    } else {
-      // A great triangle over a tall rectangular slot.
-      const s = b.w * 0.36;
-      const a = P(-s, cy - s * 0.55, face);
-      const c = P(s, cy - s * 0.55, face);
-      const top = P(0, cy + s * 0.95, face);
-      pushSeg(edges, a, c);
-      pushSeg(edges, c, top);
-      pushSeg(edges, top, a);
-      pushSeg(detail, P(-1.6, 3, face), P(-1.6, cy - s * 0.8, face));
-      pushSeg(detail, P(1.6, 3, face), P(1.6, cy - s * 0.8, face));
-      pushSeg(detail, P(-1.6, cy - s * 0.8, face), P(1.6, cy - s * 0.8, face));
     }
+    if (pts.length === 2) out.push(...pts[0], ...pts[1]);
   }
-
-  return { edges, detail };
 }
 
-const SANGSAD_LINES = buildSangsad();
-
-function useSangsadFill() {
-  const geos = useMemo(() => {
-    const out: BufferGeometry[] = [];
-    const oct = new CylinderGeometry(OCT_R * Math.cos(Math.PI / 8) * 1.0, OCT_R, OCT_H - 2.2, 8);
-    oct.translate(0, (OCT_H + 2.2) / 2, 0);
-    out.push(oct);
-    for (const b of BLOCKS) {
-      const box = new BoxGeometry(b.w, b.h - 2.2, b.d);
-      box.translate(0, (b.h + 2.2) / 2, 0);
-      box.rotateY(b.angle);
-      box.translate(Math.sin(b.angle) * RING_R, 0, Math.cos(b.angle) * RING_R);
-      out.push(box);
-    }
-    const plinth = new CylinderGeometry(64, 64, 2.2, 8);
-    plinth.rotateY(Math.PI / 8);
-    plinth.translate(0, 1.1, 0);
-    out.push(plinth);
-    return out;
-  }, []);
-  useLayoutEffect(() => () => geos.forEach((g) => g.dispose()), [geos]);
-  return geos;
+function buildSangsadParts(root: Object3D): SangsadParts {
+  root.updateMatrixWorld(true);
+  const fills: BufferGeometry[] = [];
+  const edgeArr: number[] = [];
+  const bandArr: number[] = [];
+  root.traverse((o) => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    const g = mesh.geometry.clone();
+    g.applyMatrix4(mesh.matrixWorld);
+    g.deleteAttribute("normal");
+    g.deleteAttribute("uv");
+    fills.push(g);
+    const edges = new EdgesGeometry(g, EDGE_ANGLE);
+    edgeArr.push(...(edges.attributes.position.array as Float32Array));
+    edges.dispose();
+    // Marble strips: slice this mass every 1.5 m.
+    const soup = g.index ? g.toNonIndexed() : g;
+    const pos = soup.attributes.position.array as ArrayLike<number>;
+    g.computeBoundingBox();
+    const bb = g.boundingBox!;
+    for (let h = bb.min.y + BAND_STEP; h < bb.max.y - 0.2; h += BAND_STEP) sliceAt(pos, h, bandArr);
+    if (soup !== g) soup.dispose();
+  });
+  const lines = (arr: number[]) => {
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(new Float32Array(arr), 3));
+    return geo;
+  };
+  return { fills, edges: lines(edgeArr), bands: lines(bandArr) };
 }
 
 function SangsadBhaban() {
-  const edgeGeo = useLines(SANGSAD_LINES.edges);
-  const detailGeo = useLines(SANGSAD_LINES.detail);
-  const fills = useSangsadFill();
-  const fill = useMemo(() => new Color(palette.bgNight).lerp(new Color(palette.bgDawn), 0.35), []);
-  const dim = useMemo(() => new Color(palette.lineBase).lerp(new Color(palette.green), 0.45), []);
+  const { scene } = useGLTF(MODEL_URL);
+  const parts = useMemo(() => buildSangsadParts(scene), [scene]);
+  useLayoutEffect(
+    () => () => {
+      parts.fills.forEach((g) => g.dispose());
+      parts.edges.dispose();
+      parts.bands.dispose();
+    },
+    [parts]
+  );
+  // One fill material shared by every mass, updated through a mesh ref.
+  const fillMat = useMemo(
+    () =>
+      new MeshBasicMaterial({ color: palette.bgNight, fog: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+    []
+  );
+  useLayoutEffect(() => () => fillMat.dispose(), [fillMat]);
+  const fillMesh = useRef<Mesh>(null);
   const reflEdge = useRef<LineBasicMaterial>(null);
-  const reflDetail = useRef<LineBasicMaterial>(null);
+  const reflBand = useRef<LineBasicMaterial>(null);
 
   useFrame(() => {
-    // The reflection brightens a little as the sky lightens.
+    // Faces take the background colour (it shifts to dawn with the sky).
+    if (fillMesh.current) (fillMesh.current.material as MeshBasicMaterial).color.copy(SKY);
     const d = dawnAmount(contactPhase(scrollStore.progress));
     if (reflEdge.current) reflEdge.current.opacity = 0.16 + 0.12 * d;
-    if (reflDetail.current) reflDetail.current.opacity = 0.08 + 0.06 * d;
+    if (reflBand.current) reflBand.current.opacity = 0.05 + 0.04 * d;
   });
 
   return (
-    <group position={SANGSAD_POSITION} rotation-y={SANGSAD_YAW}>
-      {fills.map((g, i) => (
-        <mesh key={i} geometry={g}>
-          <meshBasicMaterial color={fill} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
-        </mesh>
+    <group position={SANGSAD_POSITION} rotation-y={MODEL_YAW} scale={MODEL_SCALE}>
+      {parts.fills.map((g, i) => (
+        <mesh key={i} ref={i === 0 ? fillMesh : undefined} geometry={g} material={fillMat} />
       ))}
-      <lineSegments geometry={edgeGeo}>
+      <lineSegments geometry={parts.edges}>
         <lineBasicMaterial color={palette.green} fog />
       </lineSegments>
-      <lineSegments geometry={detailGeo}>
-        <lineBasicMaterial color={dim} fog />
+      <lineSegments geometry={parts.bands}>
+        <lineBasicMaterial color={palette.green} transparent opacity={0.3} depthWrite={false} fog />
       </lineSegments>
       {/* Mirror image in the lake, under the water surface. */}
-      <group position-y={2 * WATER_Y} scale={[1, -1, 1]}>
-        <lineSegments geometry={edgeGeo}>
+      <group position-y={(2 * WATER_Y) / MODEL_SCALE} scale={[1, -1, 1]}>
+        <lineSegments geometry={parts.edges}>
           <lineBasicMaterial ref={reflEdge} color={palette.green} transparent opacity={0.16} depthWrite={false} fog />
         </lineSegments>
-        <lineSegments geometry={detailGeo}>
-          <lineBasicMaterial ref={reflDetail} color={palette.green} transparent opacity={0.08} depthWrite={false} fog />
+        <lineSegments geometry={parts.bands}>
+          <lineBasicMaterial ref={reflBand} color={palette.green} transparent opacity={0.05} depthWrite={false} fog />
         </lineSegments>
       </group>
     </group>
   );
 }
+
+useGLTF.preload(MODEL_URL);
 
 /* ------------------------------------------------------------------ */
 /* Lake, sun, red shimmer                                              */
@@ -597,7 +526,10 @@ export function Landmarks() {
       <Stars />
       <Sun />
       <Lake />
-      <SangsadBhaban />
+      {/* The model loads on its own; nothing else waits for it. */}
+      <Suspense fallback={null}>
+        <SangsadBhaban />
+      </Suspense>
       <ShaheedMinar />
     </>
   );
