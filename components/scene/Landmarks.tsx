@@ -216,7 +216,7 @@ useGLTF.preload(MODEL_URL);
 /*
  * The sun (world space). It rises straight out of the lake behind the
  * octagon, clears the roof and settles in the sky just above it as the sky
- * turns to dawn. Its reflection is a mirrored disc under the water; a soft
+ * turns to dawn. One sun only: on the water it shows as the red shimmer. A soft
  * glow (drawn without depth) backlights the building while the disc is
  * still hidden behind it.
  */
@@ -232,9 +232,8 @@ const ease = (t: number) => {
   const x = Math.min(1, Math.max(0, t));
   return x * x * (3 - 2 * x);
 };
-/** World-space clipping: the sun shows above the water, its reflection below. */
+/** World-space clipping: the sun shows only above the water. */
 const ABOVE_WATER = [new Plane(new Vector3(0, 1, 0), -WATER_Y)];
-const BELOW_WATER = [new Plane(new Vector3(0, -1, 0), WATER_Y)];
 
 function useDiscTexture(stops: [number, string][]) {
   const tex = useMemo(() => {
@@ -258,13 +257,12 @@ const HALO_STOPS: [number, string][] = [
   [1, "rgba(255,255,255,0)"],
 ];
 
-/** The rising sun; mirrored = its reflection in the lake. */
-function Sun({ mirrored = false }: { mirrored?: boolean }) {
+/** The rising sun (the only one: the lake carries its shimmer, not a mirror image). */
+function Sun() {
   const group = useRef<Group>(null);
   const discMat = useRef<MeshBasicMaterial>(null);
   const haloMat = useRef<MeshBasicMaterial>(null);
   const haloTex = useDiscTexture(HALO_STOPS);
-  const clip = mirrored ? BELOW_WATER : ABOVE_WATER;
 
   useFrame(({ camera }) => {
     const g = group.current;
@@ -273,10 +271,10 @@ function Sun({ mirrored = false }: { mirrored?: boolean }) {
     g.visible = u > 0.001;
     if (!g.visible) return;
     const y = SUN_LOW + (SUN_HIGH - SUN_LOW) * u;
-    g.position.set(SUN_BASE.x, mirrored ? 2 * WATER_Y - y : y, SUN_BASE.z);
+    g.position.set(SUN_BASE.x, y, SUN_BASE.z);
     g.lookAt(camera.position.x, g.position.y, camera.position.z);
-    if (!mirrored) SUN_WORLD.copy(g.position);
-    const k = mirrored ? 0.4 : 1;
+    SUN_WORLD.copy(g.position);
+    const k = 1;
     if (discMat.current) discMat.current.opacity = k * Math.min(1, u * 5);
     if (haloMat.current) haloMat.current.opacity = k * 0.45 * Math.min(1, u * 4) * (1 - 0.5 * ease((u - 0.8) / 0.2));
   });
@@ -284,7 +282,7 @@ function Sun({ mirrored = false }: { mirrored?: boolean }) {
   return (
     <group ref={group} visible={false}>
       {/* Glow without depth: backlights the building while the disc is behind it. */}
-      <mesh renderOrder={mirrored ? 1 : 5}>
+      <mesh renderOrder={5}>
         <planeGeometry args={[SUN_R * 6, SUN_R * 6]} />
         <meshBasicMaterial
           ref={haloMat}
@@ -294,9 +292,9 @@ function Sun({ mirrored = false }: { mirrored?: boolean }) {
           opacity={0}
           blending={AdditiveBlending}
           depthWrite={false}
-          depthTest={mirrored}
+          depthTest={false}
           fog={false}
-          clippingPlanes={clip}
+          clippingPlanes={ABOVE_WATER}
         />
       </mesh>
       <mesh renderOrder={2}>
@@ -308,7 +306,7 @@ function Sun({ mirrored = false }: { mirrored?: boolean }) {
           opacity={0}
           fog={false}
           toneMapped={false}
-          clippingPlanes={clip}
+          clippingPlanes={ABOVE_WATER}
         />
       </mesh>
     </group>
@@ -560,7 +558,6 @@ export function Landmarks() {
       <SkyShift />
       <Stars />
       <Sun />
-      <Sun mirrored />
       <Lake />
       {/* The model loads on its own; nothing else waits for it. */}
       <Suspense fallback={null}>

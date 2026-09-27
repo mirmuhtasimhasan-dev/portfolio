@@ -54,7 +54,7 @@ const LAYOUT: Record<SectionId, string> = {
   toolset: "items-start justify-center text-center pt-[12vh]",
   gali: "items-start justify-center text-center pt-[12vh]",
   roof: "items-end justify-center text-center pb-[10vh]",
-  contact: "items-end justify-center pb-[5vh]",
+  contact: "items-end justify-center pb-[3vh]",
 };
 
 function SectionBody({ id, index }: { id: SectionId; index: number }) {
@@ -138,9 +138,10 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
       );
     case "contact":
       return (
-        <Scrimmed className="w-full max-w-4xl">
+        // One clean card, no blurred backing.
+        <div className="w-full max-w-4xl">
           <ContactPanel eyebrow={<Eyebrow index={index} label="Contact" />} />
-        </Scrimmed>
+        </div>
       );
     default:
       return null;
