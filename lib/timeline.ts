@@ -165,9 +165,9 @@ export const CONTACT_TIMING = {
   starsTo: 0.25,
   rainFrom: -0.6,
   rainTo: 0.05,
-  /** Then "Say hello" and the form. */
-  textFrom: 0.62,
-  textTo: 0.8,
+  /** "Say hello" and the form, as soon as the sun clears the roof. */
+  textFrom: 0.4,
+  textTo: 0.58,
 };
 const CT = CONTACT_TIMING;
 /** Sun height fraction at which the disc's centre crosses the horizon. */
