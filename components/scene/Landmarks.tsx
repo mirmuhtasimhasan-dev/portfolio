@@ -177,6 +177,7 @@ function SangsadBhaban() {
       <lineSegments geometry={parts.bands}>
         <lineBasicMaterial color={palette.green} transparent opacity={0.3} depthWrite={false} fog />
       </lineSegments>
+      <Sun />
       {/* Mirror image in the lake, under the water surface. */}
       <group position-y={(2 * WATER_Y) / MODEL_SCALE} scale={[1, -1, 1]}>
         <lineSegments geometry={parts.edges}>
@@ -185,6 +186,7 @@ function SangsadBhaban() {
         <lineSegments geometry={parts.bands}>
           <lineBasicMaterial ref={reflBand} color={palette.green} transparent opacity={0.05} depthWrite={false} fog />
         </lineSegments>
+        <Sun mirrored />
       </group>
     </group>
   );
@@ -196,18 +198,45 @@ useGLTF.preload(MODEL_URL);
 /* Lake, sun, red shimmer                                              */
 /* ------------------------------------------------------------------ */
 
-/** Sun sits far behind the building, a little toward the hoist like the flag's disc. */
-const SUN_DIST = 120;
-const SUN_R = 26;
-const SUN_BASE = SANGSAD_POSITION.clone()
-  .addScaledVector(TO_BUILDING, SUN_DIST)
-  .addScaledVector(new Vector3(-TO_BUILDING.z, 0, TO_BUILDING.x), -14);
-const SUN_LOW = -SUN_R * 1.3;
-// Final height: the disc clears the roofline, its lower edge just behind the
-// top of the assembly block (green field, red disc: the flag).
-const SUN_HIGH = 88;
-/** Only the part above the horizon shows (the ground is not solid). */
-const ABOVE_HORIZON = [new Plane(new Vector3(0, 1, 0), 0)];
+/*
+ * The sun (model space, inside the building group). It rises out of the lake
+ * in front of the east facade, climbs the facade, and settles inside the
+ * great circle cut-out, just inside the rim, just in front of the cut-out's
+ * back wall, so the two marble bands pass in front of it: a red disc in a
+ * green field, the Bangladesh flag. From the Blender model: circle centre
+ * at east block (63.14, 16.76, -2.61) + (6.46, 1.84, 0.01), radius 10.8 m.
+ */
+const CIRCLE = new Vector3(69.65, 18.6, -2.6);
+const SUN_R = 10.3;
+const SUN_START_X = 118;
+const SUN_FACE_X = 74;
+/** Live world position of the sun (the shimmer on the water follows it). */
+const SUN_WORLD = new Vector3();
+const ease = (t: number) => {
+  const x = Math.min(1, Math.max(0, t));
+  return x * x * (3 - 2 * x);
+};
+/** Sun centre in model space for rise progress u (0..1). */
+function sunPath(u: number, out: Vector3) {
+  const waterY = WATER_Y / MODEL_SCALE;
+  if (u < 0.35) {
+    const k = ease(u / 0.35);
+    return out.set(SUN_START_X, waterY - SUN_R - 1 + (SUN_R * 1.9 + 1) * k, CIRCLE.z);
+  }
+  if (u < 0.8) {
+    const k = ease((u - 0.35) / 0.45);
+    return out.set(
+      SUN_START_X + (SUN_FACE_X - SUN_START_X) * k,
+      waterY + SUN_R * 0.9 + (CIRCLE.y - waterY - SUN_R * 0.9) * k,
+      CIRCLE.z
+    );
+  }
+  const k = ease((u - 0.8) / 0.2);
+  return out.set(SUN_FACE_X + (CIRCLE.x - SUN_FACE_X) * k, CIRCLE.y, CIRCLE.z);
+}
+/** World-space clipping: the sun shows above the water, its reflection below. */
+const ABOVE_WATER = [new Plane(new Vector3(0, 1, 0), -WATER_Y)];
+const BELOW_WATER = [new Plane(new Vector3(0, -1, 0), WATER_Y)];
 
 function useDiscTexture(stops: [number, string][]) {
   const tex = useMemo(() => {
@@ -231,30 +260,32 @@ const HALO_STOPS: [number, string][] = [
   [1, "rgba(255,255,255,0)"],
 ];
 
-function Sun() {
-  const disc = useRef<Mesh>(null);
-  const halo = useRef<Mesh>(null);
+/** The disc faces +X (the east facade's normal). mirrored = its reflection. */
+function Sun({ mirrored = false }: { mirrored?: boolean }) {
+  const group = useRef<Group>(null);
   const discMat = useRef<MeshBasicMaterial>(null);
   const haloMat = useRef<MeshBasicMaterial>(null);
   const haloTex = useDiscTexture(HALO_STOPS);
+  const clip = mirrored ? BELOW_WATER : ABOVE_WATER;
 
-  useFrame(({ camera }) => {
-    const r = sunRise(contactPhase(scrollStore.progress));
-    const y = SUN_LOW + (SUN_HIGH - SUN_LOW) * r;
-    for (const m of [disc.current, halo.current]) {
-      if (!m) continue;
-      m.visible = r > 0.001;
-      m.position.set(SUN_BASE.x, y, SUN_BASE.z);
-      m.lookAt(camera.position.x, y, camera.position.z);
-    }
-    if (discMat.current) discMat.current.opacity = Math.min(1, r * 4);
-    if (haloMat.current) haloMat.current.opacity = 0.55 * Math.min(1, r * 3);
+  useFrame(() => {
+    const g = group.current;
+    if (!g) return;
+    const u = sunRise(contactPhase(scrollStore.progress));
+    g.visible = u > 0.001;
+    if (!g.visible) return;
+    sunPath(u, g.position);
+    if (!mirrored) g.getWorldPosition(SUN_WORLD);
+    const k = mirrored ? 0.4 : 1;
+    if (discMat.current) discMat.current.opacity = k * Math.min(1, u * 5);
+    // The glow fades as the disc settles, so the circle reads crisp.
+    if (haloMat.current) haloMat.current.opacity = k * 0.5 * Math.min(1, u * 4) * (1 - ease((u - 0.75) / 0.25));
   });
 
   return (
-    <>
-      <mesh ref={halo} visible={false} renderOrder={-3}>
-        <planeGeometry args={[SUN_R * 6, SUN_R * 6]} />
+    <group ref={group} rotation-y={Math.PI / 2} visible={false}>
+      <mesh renderOrder={1}>
+        <planeGeometry args={[SUN_R * 5, SUN_R * 5]} />
         <meshBasicMaterial
           ref={haloMat}
           map={haloTex}
@@ -264,11 +295,11 @@ function Sun() {
           blending={AdditiveBlending}
           depthWrite={false}
           fog={false}
-          clippingPlanes={ABOVE_HORIZON}
+          clippingPlanes={clip}
         />
       </mesh>
-      <mesh ref={disc} visible={false} renderOrder={-2}>
-        <circleGeometry args={[SUN_R, 64]} />
+      <mesh position-z={0.02} renderOrder={2}>
+        <circleGeometry args={[SUN_R, 72]} />
         <meshBasicMaterial
           ref={discMat}
           color={palette.red}
@@ -276,10 +307,10 @@ function Sun() {
           opacity={0}
           fog={false}
           toneMapped={false}
-          clippingPlanes={ABOVE_HORIZON}
+          clippingPlanes={clip}
         />
       </mesh>
-    </>
+    </group>
   );
 }
 
@@ -336,13 +367,16 @@ function Lake() {
     const arr = line.geometry.attributes.position.array as Float32Array;
     const across = new Vector3(-TO_BUILDING.z, 0, TO_BUILDING.x);
     const t = clock.elapsedTime;
-    const sunAcross = new Vector3().subVectors(SUN_BASE, ROAD_END).dot(across);
+    // A column of red dashes from the near shore to the water under the sun.
+    const toSun = new Vector3().subVectors(SUN_WORLD, ROAD_END);
+    const sunDist = Math.max(20, toSun.dot(TO_BUILDING));
+    const sunAcross = toSun.dot(across);
     for (let i = 0; i < SHIMMER; i++) {
       const f = (i + 0.5) / SHIMMER;
-      const dist = 12 + f * 150;
-      // Column narrows toward the far shore, dashes wobble side to side.
-      const width = (1 - f * 0.65) * (4 + 5 * Math.abs(Math.sin(t * 1.7 + i * 2.3)));
-      const off = sunAcross * (dist / (SUN_DIST + 180)) + Math.sin(t * 0.9 + i * 1.3) * 1.2;
+      const dist = 12 + f * (sunDist - 12);
+      // Column narrows toward the sun, dashes wobble side to side.
+      const width = (1 - f * 0.55) * (3 + 4 * Math.abs(Math.sin(t * 1.7 + i * 2.3)));
+      const off = sunAcross * (dist / sunDist) + Math.sin(t * 0.9 + i * 1.3) * 0.9;
       const c = ROAD_END.clone().addScaledVector(TO_BUILDING, dist).addScaledVector(across, off);
       const a = c.clone().addScaledVector(across, -width / 2);
       const b = c.clone().addScaledVector(across, width / 2);
@@ -524,7 +558,6 @@ export function Landmarks() {
     <>
       <SkyShift />
       <Stars />
-      <Sun />
       <Lake />
       {/* The model loads on its own; nothing else waits for it. */}
       <Suspense fallback={null}>
