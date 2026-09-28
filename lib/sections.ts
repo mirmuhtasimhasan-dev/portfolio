@@ -16,9 +16,9 @@ export const SECTIONS: Section[] = [
   { id: "hero", label: "Hero", weight: 1, num: 1 },
   { id: "about", label: "About", weight: 1.8, num: 2 },
   { id: "credentials", label: "Credentials", weight: 1.8, num: 3 },
-  { id: "toolset", label: "Toolset: Frontend street", weight: 1.1, num: 4 },
-  { id: "gali", label: "Toolset: Backend gali", weight: 1.1, num: 4 },
-  { id: "roof", label: "Toolset: Server roof", weight: 1.1, num: 4 },
+  { id: "toolset", label: "Tech stack: Frontend", weight: 1.1, num: 4 },
+  { id: "gali", label: "Tech stack: Backend & Data", weight: 1.1, num: 4 },
+  { id: "roof", label: "Tech stack: Deploy & DevOps", weight: 1.1, num: 4 },
   { id: "projects", label: "Projects", weight: 1, num: 5 },
   ...FEATURED.map((p) => ({ id: projectSectionId(p.slug), label: `Projects: ${p.name}`, weight: 1, num: 5 })),
   // Contact plays the sunrise in its hold, then the form: more scroll.

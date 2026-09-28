@@ -16,6 +16,7 @@ import { RedHints } from "./RedHints";
 import { NeonBazaar } from "./NeonBazaar";
 import { Hatirjheel } from "./Hatirjheel";
 import { Landmarks } from "./Landmarks";
+import { TechGate } from "./TechGate";
 import { FOG_DENSITY } from "./fog";
 
 type Props = {
@@ -72,6 +73,9 @@ export default function Scene({ onCut }: Props) {
         {/* Sign text loads its font; the rest of the scene never waits for it. */}
         <Suspense fallback={null}>
           <NeonBazaar />
+        </Suspense>
+        <Suspense fallback={null}>
+          <TechGate />
         </Suspense>
         <Hatirjheel />
         <Landmarks />

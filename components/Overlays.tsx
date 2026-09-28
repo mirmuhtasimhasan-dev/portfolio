@@ -23,15 +23,11 @@ function Eyebrow({ index, label }: { index: number; label: string }) {
   );
 }
 
-/** Small caption naming the Neon Bazaar zone at each of its three holds. */
-function ZoneCaption({ index, zone, note }: { index: number; zone: string; note: string }) {
-  return (
-    <Scrimmed className="max-w-md">
-      <Eyebrow index={index} label={`Toolset · ${zone}`} />
-      <p className="text-lg text-text">{note}</p>
-    </Scrimmed>
-  );
-}
+const ZONES_TEXT: Record<string, { title: string; note: string }> = {
+  toolset: { title: "Frontend", note: "What users see" },
+  gali: { title: "Backend & Data", note: "What runs behind it" },
+  roof: { title: "Deploy & DevOps", note: "Where it goes live" },
+};
 
 function Scrimmed({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -105,22 +101,17 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
         </div>
       );
     case "toolset":
-      return (
-        <Scrimmed className="max-w-xl">
-          <Eyebrow index={index} label="Toolset" />
-          <h2 className="text-3xl font-semibold tracking-tight text-text sm:text-5xl">The Neon Bazaar</h2>
-          <p className="mt-4 text-base text-text-2">
-            Hover a sign to see where I used it. Click it to send it down the cable.
-          </p>
-          <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-text-2/80">
-            Frontend street · Backend gali · Server roof
-          </p>
-        </Scrimmed>
-      );
     case "gali":
-      return <ZoneCaption index={index} zone="Backend gali" note="Tall narrow signs down the lane: what runs behind the page." />;
-    case "roof":
-      return <ZoneCaption index={index} zone="Server roof" note="Up on the rooftops: where it gets shipped and kept running." />;
+    case "roof": {
+      // A small two-line street plate for the zone, lit while its hold is active.
+      const zone = ZONES_TEXT[id];
+      return (
+        <div className="rounded-md border border-green/70 bg-bg-night/90 px-4 py-2 text-left shadow-[0_0_18px_rgb(34_197_94/0.35)]">
+          <h2 className="font-mono text-sm font-semibold uppercase tracking-[0.2em] text-green">{zone.title}</h2>
+          <p className="mt-0.5 text-sm text-text">{zone.note}</p>
+        </div>
+      );
+    }
     case "projects":
       // The gantry sign over the road is the heading; this is for screen readers.
       return (

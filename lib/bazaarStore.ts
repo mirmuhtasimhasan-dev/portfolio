@@ -5,6 +5,8 @@
 export const bazaarStore = {
   /** Tool under the pointer. */
   hovered: null as string | null,
+  /** True after the first sign click (hides the "click a sign" hint). */
+  clicked: false,
   /** Last clicked tool. */
   selected: null as string | null,
   /** Set when a sign is clicked; the pulse component consumes it. */

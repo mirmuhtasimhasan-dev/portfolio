@@ -26,7 +26,6 @@ import { BILLBOARDS, BRIDGE_FROM } from "@/lib/bridge";
 /** Height the pulse runs at along the bridge deck. */
 const DECK_Y = 0.25;
 import { bazaarStore } from "@/lib/bazaarStore";
-import { toolTipEls } from "@/lib/labelStore";
 import { logoSegments } from "@/lib/logoLines";
 import { palette } from "@/lib/palette";
 import { roadFrame } from "@/lib/paths";
@@ -38,7 +37,7 @@ import { sectionPhase } from "@/lib/stopMap";
 import { sectionIndex } from "@/lib/sections";
 
 const ROOF_SECTION = sectionIndex("roof");
-import { featuredUsing, usedIn } from "@/lib/toolUsage";
+import { featuredUsing } from "@/lib/toolUsage";
 
 const FONT = "/fonts/geist-mono-600.woff";
 const GREEN = new Color(palette.green);
@@ -164,7 +163,8 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     const atRoof = inZone && Math.abs(stop - ROOF_SECTION) < 0.5;
     const rest = near || atRoof ? 0.1 : 0.3;
     const k = hovered || selected ? 1 : rest + (1 - rest) * focus;
-    const b = (SIGN_DIM + (lit - SIGN_DIM) * s.x) * k;
+    // Hover only makes the sign glow brighter.
+    const b = Math.min(1, (SIGN_DIM + (lit - SIGN_DIM) * s.x) * k * (hovered ? 1.35 : 1));
     const tm = tube.current?.material;
     if (tm) tm.opacity = b * 0.75;
     // Bright white-green core: only once the tube is lit.
@@ -200,6 +200,7 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     e.stopPropagation();
     st.current.latched = true;
     bazaarStore.selected = tool.name;
+    bazaarStore.clicked = true;
     bazaarStore.pulseRequest = { tool: tool.name, at: performance.now() };
   };
 
@@ -471,40 +472,6 @@ export function NeonBazaar() {
   const height = useThree((s) => s.size.height);
   // Solved for the actual viewport, so no sign is cut off or overlaps.
   const signs = useMemo(() => getBazaar(width, height), [width, height]);
-  const camera = useThree((s) => s.camera);
-  const size = useThree((s) => s.size);
-  const tmp = useMemo(() => new Vector3(), []);
-  const shown = useRef<string | null>(null);
-
-  // "Used in" tooltip for the hovered (or last clicked) sign.
-  useFrame(() => {
-    const { root, name, used } = toolTipEls;
-    if (!root || !name || !used) return;
-    const current = inBazaar(scrollStore.stop) ? (bazaarStore.hovered ?? bazaarStore.selected) : null;
-    const sign = current ? signs.find((s) => s.tool.name === current) : undefined;
-    if (!sign) {
-      root.style.visibility = "hidden";
-      root.style.opacity = "0";
-      return;
-    }
-    if (shown.current !== sign.tool.name) {
-      shown.current = sign.tool.name;
-      name.textContent = sign.tool.name;
-      const list = usedIn(sign.tool.name).map((p) => p.name);
-      used.textContent = list.length ? `Used in ${list.join(" · ")}` : "Learning and side builds";
-    }
-    tmp.copy(sign.anchor).setY(sign.anchor.y + 0.4).project(camera);
-    if (tmp.z >= 1) {
-      root.style.visibility = "hidden";
-      return;
-    }
-    const x = (tmp.x * 0.5 + 0.5) * size.width;
-    const y = (-tmp.y * 0.5 + 0.5) * size.height;
-    root.style.visibility = "visible";
-    root.style.opacity = "1";
-    root.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -100%)`;
-  });
-
   return (
     <group>
       {signs.map((spec, i) => (

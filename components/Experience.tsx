@@ -14,7 +14,7 @@ import { scrollStore } from "@/lib/scrollStore";
 import { PROJECT_SECTIONS } from "@/lib/sections";
 import { AboutCard } from "./AboutCard";
 import { TRACK_ID, TRACK_VH } from "@/lib/sections";
-import { ToolTooltip } from "./ToolTooltip";
+import { SignHint } from "./SignHint";
 import { HOLDS } from "@/lib/stopMap";
 
 // Text first; the WebGL canvas loads after, client only.
@@ -52,7 +52,7 @@ export function Experience() {
         <Scene onCut={onCut} />
       </div>
       <AboutCard />
-      <ToolTooltip />
+      <SignHint />
       <Overlays ref={overlays} />
       <div ref={fade} className="pointer-events-none fixed inset-0 z-20 bg-bg-night opacity-0" />
       {/* The tall container that produces the master scroll progress. */}
