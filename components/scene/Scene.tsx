@@ -17,6 +17,7 @@ import { NeonBazaar } from "./NeonBazaar";
 import { Hatirjheel } from "./Hatirjheel";
 import { Landmarks } from "./Landmarks";
 import { TechGate } from "./TechGate";
+import { Ambient } from "./Ambient";
 import { FOG_DENSITY } from "./fog";
 
 type Props = {
@@ -77,6 +78,8 @@ export default function Scene({ onCut }: Props) {
         <Suspense fallback={null}>
           <TechGate />
         </Suspense>
+        {/* Small, slow, dim details per section: desktop only, never with reduced motion. */}
+        {!quality.phone && !quality.reduced && <Ambient />}
         <Hatirjheel />
         <Landmarks />
         <CameraRig onCut={onCut} />
