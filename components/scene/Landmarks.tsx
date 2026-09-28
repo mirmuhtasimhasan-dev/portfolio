@@ -82,7 +82,7 @@ const WATER_Y = -0.4;
  */
 const MODEL_URL = "/models/sangsad-bhaban.glb";
 /** Fits the finale framing (the model is ~150 m across, 47 m to the top). */
-const MODEL_SCALE = 0.72;
+const MODEL_SCALE = 0.95;
 /** Turns the model's +X facade toward the Contact camera across the lake. */
 const MODEL_YAW = Math.atan2(TO_BUILDING.z, -TO_BUILDING.x);
 const EDGE_ANGLE = 20;
@@ -292,12 +292,12 @@ useGLTF.preload(MODEL_URL);
  * glow (drawn without depth) backlights the building while the disc is
  * still hidden behind it.
  */
-const SUN_R = 22;
+const SUN_R = 17;
 /** Straight behind the octagon, seen from the Contact stop. */
 const SUN_BASE = SANGSAD_POSITION.clone().addScaledVector(TO_BUILDING, 120);
 const SUN_LOW = WATER_Y - SUN_R - 1;
 /** Final height: the disc sits just above the octagon roof. */
-const SUN_HIGH = 92;
+const SUN_HIGH = 100;
 /** Live world position of the sun (the shimmer on the water follows it). */
 const SUN_WORLD = new Vector3();
 const ease = (t: number) => {

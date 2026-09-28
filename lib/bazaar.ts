@@ -53,20 +53,20 @@ export type SignSpec = {
 type Zone = Tool["zone"];
 
 const BOARD: Record<Zone, { w: number; h: number; y: number }> = {
-  frontend: { w: 2.7, h: 1.0, y: 3.2 },
+  frontend: { w: 2.8, h: 1.05, y: 3.2 },
   backend: { w: 1.2, h: 3.3, y: 6.4 },
   // y is the one line height for the whole roof row (board center).
   server: { w: 4.4, h: 1.4, y: 18.2 },
 };
 
 /** Frontend street shop boards: lower and upper floor rows (board centers, m). */
-const FRONTEND_ROWS = [3.0,4.4,5.8,7.2];
+const FRONTEND_ROWS = [2.9, 4.5, 6.1, 7.7, 9.3, 10.9];
 /** Largest to smallest on-screen board height in the Frontend street. */
 const MAX_SIZE_RATIO = 1.5;
 
 /** Where each zone may start along the road, and which side(s) it uses. */
 const ZONE_RULES: Record<Zone, { from: number; to: number; sides: (1 | -1)[] }> = {
-  frontend: { from: 0.456, to: 0.512, sides: [-1, 1] },
+  frontend: { from: 0.44, to: 0.512, sides: [-1, 1] },
   backend: { from: 0.512, to: 0.588, sides: [1] },
   server: { from: 0.55, to: 0.628, sides: [-1] },
 };

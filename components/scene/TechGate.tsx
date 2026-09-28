@@ -1,9 +1,17 @@
 "use client";
 
-import { useLayoutEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Line, Text } from "@react-three/drei";
 import { Select } from "@react-three/postprocessing";
-import { BufferAttribute, BufferGeometry, Color } from "three";
+import { BufferAttribute, BufferGeometry, Color, Vector3, type Mesh } from "three";
+import type { Line2, LineSegments2 } from "three-stdlib";
+import { facingPose } from "@/lib/bridge";
+import { sampleCamera } from "@/lib/paths";
+import { scrollStore } from "@/lib/scrollStore";
+import { sectionIndex } from "@/lib/sections";
+import { smoothstep } from "@/lib/timeline";
+import { ScrollFade } from "./ScrollFade";
 import { palette } from "@/lib/palette";
 import { roadCurve, roadFrame } from "@/lib/road";
 
@@ -21,7 +29,24 @@ const ARCH_TOP = 15;
 const FONT = "/fonts/geist-mono-600.woff";
 const CORE = new Color(palette.green).lerp(new Color("#ffffff"), 0.7);
 
+/** Dark until the Credentials hold ends, then lit as the camera approaches. */
+const CREDENTIALS = sectionIndex("credentials");
+const gateShow = (stop: number) => smoothstep(CREDENTIALS + 0.06, CREDENTIALS + 0.45, stop);
+
 export function TechGate() {
+  return (
+    <>
+      <ScrollFade show={gateShow}>
+        <Gate />
+      </ScrollFade>
+      {PLATES.map((p) => (
+        <StreetPlate key={p.section} plate={p} />
+      ))}
+    </>
+  );
+}
+
+function Gate() {
   const center = useMemo(() => roadFrame(GATE_A, 0, 0), []);
   // Local +Z faces the approaching camera (back along the road).
   const yaw = useMemo(() => {
@@ -113,6 +138,122 @@ export function TechGate() {
           </Text>
           <Line points={[[-3.2, 0.45, 0], [-3.2, 0.75, 0]]} lineWidth={1} color={palette.lineBase} />
           <Line points={[[3.2, 0.45, 0], [3.2, 0.75, 0]]} lineWidth={1} color={palette.lineBase} />
+        </group>
+      </Select>
+    </group>
+  );
+}
+
+/* ---------------- Street name plates ---------------- */
+
+type PlateSpec = { section: number; title: string; note: string; a: number; side: 1 | -1 };
+const PLATE = { w: 4.2, h: 1.4, y: 2.1 };
+
+/*
+ * One plate per zone on a pole at the roadside, a little ahead of that zone's
+ * hold and facing its camera, inner edge 8.9 m from the road center. Same
+ * style for all three; lit while its hold is active.
+ */
+const PLATES: (PlateSpec & { position: Vector3; yaw: number })[] = (
+  [
+    { section: sectionIndex("toolset"), title: "Frontend", note: "What users see", ahead: 9, side: 1 },
+    { section: sectionIndex("gali"), title: "Backend & Data", note: "What runs behind it", ahead: 9, side: -1 },
+    { section: sectionIndex("roof"), title: "Deploy & DevOps", note: "Where it goes live", ahead: 9, side: -1 },
+  ] as const
+).map((p) => {
+  const cam = new Vector3();
+  const look = new Vector3();
+  sampleCamera(p.section, cam, look);
+  // Road fraction of the hold camera, then a little ahead of it.
+  let best = 0;
+  let bd = Infinity;
+  for (let i = 0; i <= 2000; i++) {
+    const q = roadCurve.getPointAt(i / 2000);
+    const d = (q.x - cam.x) ** 2 + (q.z - cam.z) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = i / 2000;
+    }
+  }
+  const a = best + p.ahead / roadCurve.getLength();
+  const side = p.side as 1 | -1;
+  return { section: p.section, title: p.title, note: p.note, a, side, ...facingPose(a, side, PLATE.y, PLATE.w, cam) };
+});
+
+type FatLine = Line2 | LineSegments2;
+type TroikaText = Mesh & { fillOpacity: number };
+
+function StreetPlate({ plate }: { plate: (typeof PLATES)[number] }) {
+  const frame = useRef<FatLine>(null);
+  const title = useRef<TroikaText>(null);
+  const note = useRef<TroikaText>(null);
+  const { w, h, y } = PLATE;
+
+  const pole = useMemo(() => {
+    const g = new BufferGeometry();
+    const p = plate.position;
+    g.setAttribute("position", new BufferAttribute(new Float32Array([p.x, 0, p.z, p.x, y - h / 2, p.z]), 3));
+    return g;
+  }, [plate, h, y]);
+  useLayoutEffect(() => () => pole.dispose(), [pole]);
+
+  useFrame(() => {
+    // Lit while its hold is active, dim otherwise.
+    const k = 0.22 + 0.78 * Math.max(0, 1 - Math.abs(scrollStore.stop - plate.section) * 1.4);
+    const fm = frame.current?.material;
+    if (fm) fm.opacity = k;
+    if (title.current) title.current.fillOpacity = k;
+    if (note.current) note.current.fillOpacity = 0.3 + 0.7 * k;
+  });
+
+  return (
+    <group>
+      <lineSegments geometry={pole}>
+        <lineBasicMaterial color={palette.lineBase} fog />
+      </lineSegments>
+      <Select enabled>
+        <group position={plate.position} rotation-y={plate.yaw}>
+          <mesh>
+            <planeGeometry args={[w, h]} />
+            <meshBasicMaterial color={palette.bgNight} fog />
+          </mesh>
+          <Line
+            ref={frame}
+            points={[
+              [-w / 2, -h / 2, 0.01], [w / 2, -h / 2, 0.01], [w / 2, -h / 2, 0.01], [w / 2, h / 2, 0.01],
+              [w / 2, h / 2, 0.01], [-w / 2, h / 2, 0.01], [-w / 2, h / 2, 0.01], [-w / 2, -h / 2, 0.01],
+            ]}
+            segments
+            lineWidth={2}
+            color={palette.green}
+            transparent
+            opacity={0.22}
+          />
+          <Text
+            ref={title}
+            font={FONT}
+            fontSize={0.38}
+            letterSpacing={0.1}
+            color={palette.green}
+            anchorX="left"
+            anchorY="middle"
+            position={[-w / 2 + 0.28, 0.25, 0.02]}
+            fillOpacity={0.22}
+          >
+            {plate.title.toUpperCase()}
+          </Text>
+          <Text
+            ref={note}
+            font={FONT}
+            fontSize={0.3}
+            color={palette.text}
+            anchorX="left"
+            anchorY="middle"
+            position={[-w / 2 + 0.28, -0.3, 0.02]}
+            fillOpacity={0.4}
+          >
+            {plate.note}
+          </Text>
         </group>
       </Select>
     </group>

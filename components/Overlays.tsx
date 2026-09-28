@@ -103,12 +103,14 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
     case "toolset":
     case "gali":
     case "roof": {
-      // A small two-line street plate for the zone, lit while its hold is active.
+      // The street plates are in the scene; this copy is for screen readers.
       const zone = ZONES_TEXT[id];
       return (
-        <div className="rounded-md border border-green/70 bg-bg-night/90 px-4 py-2 text-left shadow-[0_0_18px_rgb(34_197_94/0.35)]">
-          <h2 className="font-mono text-sm font-semibold uppercase tracking-[0.2em] text-green">{zone.title}</h2>
-          <p className="mt-0.5 text-sm text-text">{zone.note}</p>
+        <div className="sr-only">
+          <h2>
+            {id === "toolset" ? "My tech stack. " : ""}
+            {zone.title}: {zone.note}
+          </h2>
         </div>
       );
     }
