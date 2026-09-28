@@ -1,7 +1,9 @@
 "use client";
 
 import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { easing } from "maath";
+import { MAX_TURN, sangsadTurn } from "@/lib/sangsadTurn";
 import { Select } from "@react-three/postprocessing";
 import { useGLTF } from "@react-three/drei";
 import {
@@ -174,8 +176,75 @@ function SangsadBhaban() {
   const fillMesh = useRef<Mesh>(null);
   const reflEdge = useRef<LineBasicMaterial>(null);
   const reflBand = useRef<LineBasicMaterial>(null);
+  const turnGroup = useRef<Group>(null);
+  const size = useThree((st) => st.size);
+  const tmp = useMemo(() => new Vector3(), []);
+  const hintAt = useMemo(() => SANGSAD_POSITION.clone().setY(-2), []);
 
-  useFrame(() => {
+  // Drag to turn (Contact hold only). The canvas keeps vertical panning for
+  // touch (pan-y), so a vertical swipe still scrolls the page and only a
+  // horizontal swipe turns the building. The contact card sits above the
+  // canvas and takes its own pointer events, so dragging never starts there.
+  const canTurn = () => contactPhase(scrollStore.progress) > 0.3;
+  const onDown = (e: ThreeEvent<PointerEvent>) => {
+    if (!canTurn()) return;
+    e.stopPropagation();
+    const ev = e.nativeEvent;
+    if (ev.pointerType === "mouse") ev.preventDefault();
+    const startX = ev.clientX;
+    const startTarget = sangsadTurn.target;
+    const perPx = MAX_TURN / (Math.min(window.innerWidth, 900) * 0.4);
+    sangsadTurn.dragging = true;
+    document.body.style.cursor = "grabbing";
+    const move = (m: PointerEvent) => {
+      if (m.pointerId !== ev.pointerId) return;
+      const t = startTarget + (m.clientX - startX) * perPx;
+      sangsadTurn.target = Math.max(-MAX_TURN, Math.min(MAX_TURN, t));
+      if (Math.abs(m.clientX - startX) > 12) sangsadTurn.dragged = true;
+    };
+    const up = (u: PointerEvent) => {
+      if (u.pointerId !== ev.pointerId) return;
+      sangsadTurn.dragging = false;
+      sangsadTurn.target = 0; // ease back to the front view
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
+  const onOver = () => {
+    if (canTurn() && !sangsadTurn.dragging) document.body.style.cursor = "grab";
+  };
+  const onOut = () => {
+    if (!sangsadTurn.dragging) document.body.style.cursor = "";
+  };
+
+  useFrame(({ camera, gl }, delta) => {
+    if (gl.domElement.style.touchAction !== "pan-y") gl.domElement.style.touchAction = "pan-y";
+    const p = contactPhase(scrollStore.progress);
+    if (!canTurn() && !sangsadTurn.dragging) sangsadTurn.target = 0;
+    easing.damp(sangsadTurn, "angle", sangsadTurn.target, sangsadTurn.dragging ? 0.12 : 0.45, Math.min(delta, 0.1));
+    if (turnGroup.current) turnGroup.current.rotation.y = MODEL_YAW + sangsadTurn.angle;
+
+    // "Drag to turn" hint: under the building at the hold, gone after the first drag.
+    const hint = sangsadTurn.hint;
+    if (hint) {
+      const o = sangsadTurn.dragged ? 0 : smoothstep01((p - 0.45) / 0.15) * (1 - smoothstep01((p - 1.02) / 0.15));
+      const cur = parseFloat(hint.style.opacity || "0");
+      const next = sangsadTurn.dragged ? Math.max(0, cur - delta * 1.5) : o;
+      hint.style.opacity = next.toFixed(3);
+      hint.style.visibility = next < 0.01 ? "hidden" : "visible";
+      if (next >= 0.01) {
+        tmp.copy(hintAt).project(camera);
+        const x = (tmp.x * 0.5 + 0.5) * size.width;
+        const y = (-tmp.y * 0.5 + 0.5) * size.height;
+        hint.style.transform = `translate3d(${x.toFixed(1)}px, ${(y + 10).toFixed(1)}px, 0) translateX(-50%)`;
+      }
+    }
+
     // Faces take the background colour (it shifts to dawn with the sky).
     if (fillMesh.current) (fillMesh.current.material as MeshBasicMaterial).color.copy(SKY);
     const d = dawnAmount(contactPhase(scrollStore.progress));
@@ -184,10 +253,13 @@ function SangsadBhaban() {
   });
 
   return (
-    <group position={SANGSAD_POSITION} rotation-y={MODEL_YAW} scale={MODEL_SCALE}>
-      {parts.fills.map((g, i) => (
-        <mesh key={i} ref={i === 0 ? fillMesh : undefined} geometry={g} material={fillMat} />
-      ))}
+    <group ref={turnGroup} position={SANGSAD_POSITION} rotation-y={MODEL_YAW} scale={MODEL_SCALE}>
+      {/* Pointer handlers on the solid masses only (not lines or the reflection). */}
+      <group onPointerDown={onDown} onPointerOver={onOver} onPointerOut={onOut}>
+        {parts.fills.map((g, i) => (
+          <mesh key={i} ref={i === 0 ? fillMesh : undefined} geometry={g} material={fillMat} />
+        ))}
+      </group>
       <lineSegments geometry={parts.edges}>
         <lineBasicMaterial color={palette.green} fog />
       </lineSegments>
@@ -276,14 +348,15 @@ function Sun() {
     SUN_WORLD.copy(g.position);
     const k = 1;
     if (discMat.current) discMat.current.opacity = k * Math.min(1, u * 5);
-    if (haloMat.current) haloMat.current.opacity = k * 0.45 * Math.min(1, u * 4) * (1 - 0.5 * ease((u - 0.8) / 0.2));
+    if (haloMat.current) haloMat.current.opacity = k * 0.22 * Math.min(1, u * 4) * (1 - 0.5 * ease((u - 0.8) / 0.2));
   });
 
   return (
     <group ref={group} visible={false}>
       {/* Glow without depth: backlights the building while the disc is behind it. */}
       <mesh renderOrder={5}>
-        <planeGeometry args={[SUN_R * 6, SUN_R * 6]} />
+        {/* Halo radius about 1.5x the sun's, soft and low so the disc reads crisp. */}
+        <planeGeometry args={[SUN_R * 3, SUN_R * 3]} />
         <meshBasicMaterial
           ref={haloMat}
           map={haloTex}

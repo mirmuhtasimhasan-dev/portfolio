@@ -8,6 +8,7 @@ import { Overlays, type OverlaysHandle } from "./Overlays";
 import { DebugOverlay } from "./DebugOverlay";
 import { Nav } from "./Nav";
 import { ProjectPanel } from "./ProjectPanel";
+import { TurnHint } from "./TurnHint";
 import { projectStore } from "@/lib/projectStore";
 import { scrollStore } from "@/lib/scrollStore";
 import { PROJECT_SECTIONS } from "@/lib/sections";
@@ -66,6 +67,7 @@ export function Experience() {
       <SmoothScroll trackId={TRACK_ID} onTick={onTick} />
       <Nav />
       <ProjectPanel />
+      <TurnHint />
       <DebugOverlay />
     </>
   );
