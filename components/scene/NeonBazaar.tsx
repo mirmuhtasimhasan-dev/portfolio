@@ -20,7 +20,7 @@ import {
   type SpriteMaterial,
 } from "three";
 import type { Line2, LineSegments2 } from "three-stdlib";
-import { CABLE, buildCable, getBazaar, type SignSpec } from "@/lib/bazaar";
+import { CABLE, buildCable, cableAt, cableHeightAt, getBazaar, type SignSpec } from "@/lib/bazaar";
 import { BILLBOARDS, BRIDGE_FROM } from "@/lib/bridge";
 
 /** Height the pulse runs at along the bridge deck. */
@@ -242,10 +242,10 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
         <WetReflection ref={reflection} position={spec.position} yaw={spec.yaw} width={w} height={h} />
       )}
       <group position={spec.position} rotation-y={spec.yaw}>
-        {/* Dark backing: keeps city lines out of the sign, and is the hit area. */}
+        {/* Solid backing: hides every city line behind the sign, and is the hit area. */}
         <mesh onPointerOver={over} onPointerOut={out} onClick={click}>
           <planeGeometry args={[w, h]} />
-          <meshBasicMaterial color={palette.bgNight} transparent opacity={0.92} fog />
+          <meshBasicMaterial color={palette.bgNight} fog />
         </mesh>
         <Line ref={frame} points={rectPoints(w, h)} segments lineWidth={1.2} color={palette.lineBase} transparent />
         {/* Logo and name are kept out of the bloom pass (Select): a thin
@@ -358,8 +358,9 @@ function CableAndPulse({ signs }: { signs: SignSpec[] }) {
         // then along the cable toward the Projects stop.
         // Then over the bridge, lighting every billboard of a project that
         // used the tool as it passes, ending on the farthest one.
-        const up = sign.anchor.clone().setY(CABLE.height);
-        const across = roadFrame(Math.max(CABLE.from, sign.a), CABLE.lateral, CABLE.height);
+        const cableA = Math.min(CABLE.to, Math.max(CABLE.from, sign.a));
+        const up = sign.anchor.clone().setY(cableHeightAt(cableA));
+        const across = cableAt(cableA);
         const start = nearestIndex(cable.points, across);
         const used = featuredUsing(req.tool).map((p) => p.slug);
         const targets = BILLBOARDS.filter((b) => used.includes(b.project.slug));

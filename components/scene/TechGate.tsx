@@ -4,10 +4,9 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Line, Text } from "@react-three/drei";
 import { Select } from "@react-three/postprocessing";
-import { BufferAttribute, BufferGeometry, Color, Vector3, type Mesh } from "three";
+import { BufferAttribute, BufferGeometry, Color, type Mesh } from "three";
 import type { Line2, LineSegments2 } from "three-stdlib";
-import { facingPose } from "@/lib/bridge";
-import { sampleCamera } from "@/lib/paths";
+import { PLATE, PLATES } from "@/lib/plates";
 import { scrollStore } from "@/lib/scrollStore";
 import { sectionIndex } from "@/lib/sections";
 import { smoothstep } from "@/lib/timeline";
@@ -40,7 +39,9 @@ export function TechGate() {
         <Gate />
       </ScrollFade>
       {PLATES.map((p) => (
-        <StreetPlate key={p.section} plate={p} />
+        <ScrollFade key={p.section} show={plateShow(p.section)}>
+          <StreetPlate plate={p} />
+        </ScrollFade>
       ))}
     </>
   );
@@ -98,7 +99,7 @@ function Gate() {
       <Select enabled>
         <mesh position={[0, BEAM_Y, 0]}>
           <planeGeometry args={[2 * POST - 0.8, BEAM_H]} />
-          <meshBasicMaterial color={palette.bgNight} transparent opacity={0.9} fog />
+          <meshBasicMaterial color={palette.bgNight} fog />
         </mesh>
         <Line points={arch} lineWidth={2.2} color={palette.green} />
         <Line points={beam} segments lineWidth={1.6} color={palette.green} />
@@ -146,39 +147,13 @@ function Gate() {
 
 /* ---------------- Street name plates ---------------- */
 
-type PlateSpec = { section: number; title: string; note: string; a: number; side: 1 | -1 };
-const PLATE = { w: 4.2, h: 1.4, y: 2.1 };
 
-/*
- * One plate per zone on a pole at the roadside, a little ahead of that zone's
- * hold and facing its camera, inner edge 8.9 m from the road center. Same
- * style for all three; lit while its hold is active.
+
+/**
+ * Each plate shows only around its own hold. Seen from another hold far down
+ * the street it would stand behind the kerb poles, so it is hidden there.
  */
-const PLATES: (PlateSpec & { position: Vector3; yaw: number })[] = (
-  [
-    { section: sectionIndex("toolset"), title: "Frontend", note: "What users see", ahead: 9, side: 1 },
-    { section: sectionIndex("gali"), title: "Backend & Data", note: "What runs behind it", ahead: 9, side: -1 },
-    { section: sectionIndex("roof"), title: "Deploy & DevOps", note: "Where it goes live", ahead: 9, side: -1 },
-  ] as const
-).map((p) => {
-  const cam = new Vector3();
-  const look = new Vector3();
-  sampleCamera(p.section, cam, look);
-  // Road fraction of the hold camera, then a little ahead of it.
-  let best = 0;
-  let bd = Infinity;
-  for (let i = 0; i <= 2000; i++) {
-    const q = roadCurve.getPointAt(i / 2000);
-    const d = (q.x - cam.x) ** 2 + (q.z - cam.z) ** 2;
-    if (d < bd) {
-      bd = d;
-      best = i / 2000;
-    }
-  }
-  const a = best + p.ahead / roadCurve.getLength();
-  const side = p.side as 1 | -1;
-  return { section: p.section, title: p.title, note: p.note, a, side, ...facingPose(a, side, PLATE.y, PLATE.w, cam) };
-});
+const plateShow = (section: number) => (stop: number) => 1 - smoothstep(0.35, 0.6, Math.abs(stop - section));
 
 type FatLine = Line2 | LineSegments2;
 type TroikaText = Mesh & { fillOpacity: number };
@@ -187,7 +162,8 @@ function StreetPlate({ plate }: { plate: (typeof PLATES)[number] }) {
   const frame = useRef<FatLine>(null);
   const title = useRef<TroikaText>(null);
   const note = useRef<TroikaText>(null);
-  const { w, h, y } = PLATE;
+  const { w, h } = PLATE;
+  const y = plate.y;
 
   const pole = useMemo(() => {
     const g = new BufferGeometry();
@@ -232,8 +208,8 @@ function StreetPlate({ plate }: { plate: (typeof PLATES)[number] }) {
           <Text
             ref={title}
             font={FONT}
-            fontSize={0.38}
-            letterSpacing={0.1}
+            fontSize={0.34}
+            letterSpacing={0.08}
             color={palette.green}
             anchorX="left"
             anchorY="middle"

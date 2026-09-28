@@ -356,12 +356,30 @@ export function getBazaar(width = 1440, height = 900) {
  * gantry, before the bridge: over the water any line along the road would
  * converge into the billboards at their holds. The pulse continues along the
  * bridge deck (see NeonBazaar).
+ *
+ * Its height changes along the street so that from no hold does it cross a
+ * sign: above the top row of frontend boards (11.45 m) past the last of them,
+ * then down to 7.2 m once the boards stand between it and the frontend hold
+ * (below the rooftop row seen far ahead), and down to 4.4 m just before the
+ * roof hold (below the rooftop row overhead).
  */
-export const CABLE = { lateral: -9.2, from: 0.43, to: GANTRY_A - 0.006, height: 7.2, sag: 0.55, span: 14 };
-const cableHeight = () => CABLE.height;
+export const CABLE = { lateral: -9.2, from: 0.43, to: GANTRY_A - 0.006, height: 12.6, sag: 0.55, span: 14 };
+const CABLE_STEPS = [
+  { from: 0.455, to: 0.47, height: 7.2 },
+  { from: 0.586, to: 0.6, height: 4.4 },
+];
+/** Cable height (at the poles) at road fraction a. */
+export function cableHeightAt(a: number) {
+  let h = CABLE.height;
+  for (const s of CABLE_STEPS) {
+    const t = Math.min(1, Math.max(0, (a - s.from) / (s.to - s.from)));
+    h += (s.height - h) * t * t * (3 - 2 * t);
+  }
+  return h;
+}
 const cableSag = () => CABLE.sag;
 /** Where the cable runs at road fraction a. */
-export const cableAt = (a: number, y?: number) => roadFrame(a, CABLE.lateral, y ?? cableHeight());
+export const cableAt = (a: number, y?: number) => roadFrame(a, CABLE.lateral, y ?? cableHeightAt(a));
 
 /** Overhead cable along the left side of the street, sagging between poles. */
 export function buildCable() {
@@ -377,7 +395,7 @@ export function buildCable() {
     for (let k = 0; k < per; k++) {
       const t = k / per;
       const aa = a + ((CABLE.to - CABLE.from) / spans) * t;
-      pts.push(cableAt(aa, cableHeight() - cableSag() * 4 * t * (1 - t)));
+      pts.push(cableAt(aa, cableHeightAt(aa) - cableSag() * 4 * t * (1 - t)));
     }
   }
   pts.push(cableAt(CABLE.to));

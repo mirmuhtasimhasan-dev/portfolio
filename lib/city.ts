@@ -26,6 +26,12 @@ import {
 
 // The Neon Bazaar street (Toolset): low shop-houses, so rooftop signs stay in view.
 export const BAZAAR_STRETCH = { from: 0.43, to: 0.632 };
+/**
+ * Bazaar shop fronts stand back from the road (a deep shop verandah) so every
+ * sign board, turned to face its hold camera, ends at least 0.3 m in front of
+ * the wall behind it: no board ever cuts into a building.
+ */
+export const BAZAAR_FACADE = 12.3;
 // Hatirjheel stretch: low buildings only until the bridge arrives (phase 4).
 const HATIRJHEEL = { from: 0.6, to: 0.9, clearance: 60 };
 
@@ -323,6 +329,7 @@ export function generateCity(seed = 1971): CityBuffers {
       const rx = -t.z;
       const rz = t.x;
       let off = ROAD_HALF_WIDTH + SIDEWALK + depth / 2 + rand() * 1.5;
+      if (a > BAZAAR_STRETCH.from && a < BAZAAR_STRETCH.to) off = Math.max(off, BAZAAR_FACADE + depth / 2 + (off - ROAD_HALF_WIDTH - SIDEWALK - depth / 2));
       // On bends a corner can poke past the sidewalk line: push the building back.
       const yawT = Math.atan2(t.x, t.z);
       const cy = Math.cos(yawT);

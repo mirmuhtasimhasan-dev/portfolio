@@ -14,6 +14,8 @@ export const aboutCardEls: {
   line1: HTMLParagraphElement | null;
   line2: HTMLParagraphElement | null;
   leader: SVGLineElement | null;
+  /** Dark band under the leader, so city lines never cross it. */
+  leaderPad: SVGLineElement | null;
   dot: SVGCircleElement | null;
   spark: SVGCircleElement | null;
 } = {
@@ -26,6 +28,7 @@ export const aboutCardEls: {
   line1: null,
   line2: null,
   leader: null,
+  leaderPad: null,
   dot: null,
   spark: null,
 };

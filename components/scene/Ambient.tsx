@@ -30,9 +30,8 @@ import {
   FOUNDATION_HEIGHT,
   aboutWindowLocal,
 } from "@/lib/contentBuildings";
-import { buildCable, getBazaar } from "@/lib/bazaar";
 import { BILLBOARDS, WATER } from "@/lib/bridge";
-import { mulberry32 } from "@/lib/random";
+import { buildWires } from "@/lib/wires";
 
 /*
  * One small, slow, dim detail per section (SPEC.md, "Ambient details"). None of
@@ -174,172 +173,38 @@ function FanShadow() {
   );
 }
 
-/* ---------------- 3. Credentials: a thin crane on the roof ---------------- */
+/* ---------------- 3. Credentials: a red light on the roof corner ---------------- */
 
-const CRANE = { mast: 10, jib: 9, counter: 3, size: 0.7 };
-
-function Crane() {
+function RoofLight() {
   const lot = CREDENTIALS_LOT;
   const roof = FOUNDATION_HEIGHT + CREDENTIAL_FLOOR_COUNT * FLOOR_HEIGHT;
-  // At the far back corner of the roof, away from the road, the banners and
-  // the card; the jib points on along the road, away from the camera.
-  const base = useMemo(() => new Vector3(-lot.facadeX * 0.55, roof, lot.width / 2 - 2.2), [lot, roof]);
-  const s = CRANE.size / 2;
-
-  const mast = useGeometry(() => {
-    const p: number[] = [];
-    const seg = (a: number[], b: number[]) => p.push(...a, ...b);
-    const corners = [[-s, -s], [s, -s], [s, s], [-s, s]];
-    for (const [x, z] of corners) seg([x, 0, z], [x, CRANE.mast, z]);
-    // Zigzag bracing on every face.
-    for (let y = 0; y < CRANE.mast - 0.1; y += 1.5) {
-      for (let i = 0; i < 4; i++) {
-        const [x0, z0] = corners[i];
-        const [x1, z1] = corners[(i + 1) % 4];
-        seg([x0, y, z0], [x1, y + 1.5, z1]);
-      }
-    }
-    // Cab and the tower top.
-    seg([-s, CRANE.mast, -s], [0, CRANE.mast + 2.4, 0]);
-    seg([s, CRANE.mast, s], [0, CRANE.mast + 2.4, 0]);
-    return p;
-  });
-
-  // The slewing part: jib, counter-jib, ties and the hook line, along local +x.
-  const top = useGeometry(() => {
-    const p: number[] = [];
-    const seg = (a: number[], b: number[]) => p.push(...a, ...b);
-    const y = 0;
-    const J = CRANE.jib;
-    const C = CRANE.counter;
-    // Triangular jib: two bottom chords and one top chord, braced.
-    seg([-C, y, -s], [J, y, -0.1]);
-    seg([-C, y, s], [J, y, 0.1]);
-    seg([-C, y + 0.9, 0], [J - 1, y + 0.4, 0]);
-    for (let x = -C; x < J - 1; x += 1.5) {
-      seg([x, y, -s], [x + 0.75, y + 0.9 - (0.5 * (x + C)) / (J + C), 0]);
-      seg([x, y, s], [x + 0.75, y + 0.9 - (0.5 * (x + C)) / (J + C), 0]);
-    }
-    // Ties from the tower top to the jib and the counter-jib.
-    seg([0, 2.4, 0], [J * 0.7, y + 0.5, 0]);
-    seg([0, 2.4, 0], [-C, y + 0.9, 0]);
-    // Counterweight block.
-    for (const [a, b] of [[-C, -C + 1.4]]) {
-      seg([a, y - 1, -s], [b, y - 1, -s]);
-      seg([a, y - 1, s], [b, y - 1, s]);
-      seg([a, y - 1, -s], [a, y, -s]);
-      seg([b, y - 1, s], [b, y, s]);
-    }
-    // Trolley and hook line.
-    seg([J * 0.55, y, 0], [J * 0.55, y - 6, 0]);
-    seg([J * 0.55 - 0.3, y - 6, 0], [J * 0.55 + 0.3, y - 6, 0]);
-    return p;
-  });
+  // The back corner of the roof at the near end: at the hold it sits at the
+  // left of the building, away from the banners and the card.
+  const corner = useMemo(() => new Vector3(-lot.facadeX * 0.95, roof + 0.6, -lot.width / 2 + 0.3), [lot, roof]);
   const dot = useGeometry(() => [0, 0, 0]);
-  const slew = useRef<Group>(null);
   const light = useRef<PointsMaterial>(null);
 
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    // Turns a few degrees back and forth, very slowly.
-    if (slew.current) slew.current.rotation.y = -Math.PI / 2 + 0.12 * Math.sin((t * 2 * Math.PI) / 60);
     const near = smoothstep(CREDENTIALS - 1.2, CREDENTIALS - 0.5, scrollStore.stop) * (1 - smoothstep(CREDENTIALS + 0.8, CREDENTIALS + 1.5, scrollStore.stop));
-    if (light.current) light.current.opacity = near * (t % 1.8 < 0.35 ? 0.75 : 0.12);
+    if (light.current) light.current.opacity = near * (clock.elapsedTime % 1.8 < 0.5 ? 0.8 : 0.2);
   });
 
   return (
     <group position={lot.position} rotation-y={lot.yaw}>
-      <group position={base}>
-        <lineSegments geometry={mast}>
-          <lineBasicMaterial color={DIM} fog transparent opacity={0.6} />
-        </lineSegments>
-        <group ref={slew} position-y={CRANE.mast}>
-          <lineSegments geometry={top}>
-            <lineBasicMaterial color={DIM} fog transparent opacity={0.6} />
-          </lineSegments>
-          <points geometry={dot} position={[CRANE.jib, 0, 0]}>
-            <pointsMaterial ref={light} color={palette.red} size={4} sizeAttenuation={false} transparent opacity={0} fog={false} depthWrite={false} />
-          </points>
-        </group>
-      </group>
+      <points geometry={dot} position={corner}>
+        <pointsMaterial ref={light} color={palette.red} size={4} sizeAttenuation={false} transparent opacity={0} fog={false} depthWrite={false} />
+      </points>
     </group>
   );
 }
 
 /* ---------------- 4. Tech stack: tangled electric wires over the road ---------------- */
 
-const WIRES = { from: 0.405, to: 0.59, lateral: 9.2, top: 13.8, minY: 12 };
-
 function Wires() {
   const size = useThree((s) => s.size);
   const geo = useMemo(() => {
-    const rnd = mulberry32(4107);
-    const p: number[] = [];
-    const seg = (a: Vector3, b: Vector3) => p.push(a.x, a.y, a.z, b.x, b.y, b.z);
-    // Sagging wire between two pole tops; never below minY (8.5 m over the eye).
-    const wire = (a: Vector3, b: Vector3, sag: number) => {
-      let prev = a;
-      for (let i = 1; i <= 16; i++) {
-        const t = i / 16;
-        const q = a.clone().lerp(b, t);
-        q.y = Math.max(WIRES.minY, q.y - sag * 4 * t * (1 - t));
-        seg(prev, q);
-        prev = q;
-      }
-    };
-    // Left poles: the existing cable poles in the stretch. Right poles only
-    // where no shop sign stands, so no pole crosses a board.
-    const left = buildCable().poles.filter((q, i) => i % 2 === 0 && inStretch(q)).map((q) => q.clone().setY(0));
-    const signs = getBazaar(size.width, size.height).filter((s) => s.side === 1);
-    const clear = (q: Vector3) => signs.every((s) => Math.hypot(s.position.x - q.x, s.position.z - q.z) > s.width / 2 + 2.5);
-    const right: Vector3[] = [];
-    for (let a = WIRES.from; a <= WIRES.to; a += 0.009) {
-      const q = roadFrame(a, WIRES.lateral, 0);
-      if (clear(q)) right.push(q);
-    }
-    const poles = [...left, ...right];
-    for (const q of right) {
-      seg(q, q.clone().setY(WIRES.top));
-      seg(q.clone().setY(WIRES.top - 0.6).addScaledVector(alongRoadDir(q), -0.6), q.clone().setY(WIRES.top - 0.6).addScaledVector(alongRoadDir(q), 0.6));
-    }
-    // Left poles already rise to the cable; extend them to the wire height.
-    for (const q of left) seg(q.clone().setY(7.2), q.clone().setY(WIRES.top));
-    // Along each side: a few loose wires between neighbouring poles.
-    for (const side of [left, right]) {
-      for (let i = 0; i + 1 < side.length; i++) {
-        const n = 2 + Math.floor(rnd() * 3);
-        for (let k = 0; k < n; k++) {
-          const y0 = WIRES.top - 0.2 - rnd() * 1.2;
-          const y1 = WIRES.top - 0.2 - rnd() * 1.2;
-          wire(side[i].clone().setY(y0), side[i + 1].clone().setY(y1), 0.6 + rnd() * 1.0);
-        }
-      }
-    }
-    // Across the road: every right pole to a left pole a little ahead or behind.
-    for (const q of right) {
-      const others = [...left].sort((m, n) => m.distanceTo(q) - n.distanceTo(q));
-      for (const l of others.slice(0, 1 + Math.floor(rnd() * 2))) {
-        wire(q.clone().setY(WIRES.top - 0.3 - rnd() * 0.5), l.clone().setY(WIRES.top - 0.3 - rnd() * 0.5), 0.8 + rnd() * 0.6);
-      }
-    }
-    // A tangle at each pole top: small loops wound around it.
-    for (const q of poles) {
-      const loops = 2 + Math.floor(rnd() * 3);
-      for (let k = 0; k < loops; k++) {
-        const r = 0.25 + rnd() * 0.35;
-        const y = WIRES.top - 0.4 - rnd() * 1.0;
-        const tilt = (rnd() - 0.5) * 0.8;
-        let prev: Vector3 | null = null;
-        for (let i = 0; i <= 12; i++) {
-          const ang = (i / 12) * Math.PI * 2;
-          const v = new Vector3(q.x + Math.cos(ang) * r, y + Math.sin(ang) * r * tilt - (Math.sin(ang) > 0 ? 0 : 0.15), q.z + Math.sin(ang) * r);
-          if (prev) seg(prev, v);
-          prev = v;
-        }
-      }
-    }
     const g = new BufferGeometry();
-    g.setAttribute("position", new BufferAttribute(new Float32Array(p), 3));
+    g.setAttribute("position", new BufferAttribute(new Float32Array(buildWires(size.width, size.height)), 3));
     return g;
   }, [size]);
   useLayoutEffect(() => () => geo.dispose(), [geo]);
@@ -361,29 +226,6 @@ function Wires() {
     </group>
   );
 }
-
-/** Road fraction nearest to a ground point (sampled over the wire stretch). */
-function nearestA(q: Vector3) {
-  let best = Infinity;
-  let bestA = 0;
-  for (let a = WIRES.from - 0.02; a <= WIRES.to + 0.02; a += 0.001) {
-    const r = roadFrame(a, 0, 0);
-    const d = (r.x - q.x) ** 2 + (r.z - q.z) ** 2;
-    if (d < best) {
-      best = d;
-      bestA = a;
-    }
-  }
-  return bestA;
-}
-const inStretch = (q: Vector3) => {
-  const a = nearestA(q);
-  return a >= WIRES.from && a <= WIRES.to;
-};
-const alongRoadDir = (q: Vector3) => {
-  const a = nearestA(q);
-  return roadFrame(a + 0.001, 0, 0).sub(roadFrame(a, 0, 0)).normalize();
-};
 
 /* ---------------- 5. Projects: a water taxi under the bridge ---------------- */
 
@@ -481,7 +323,7 @@ function WaterTaxi() {
         <lineBasicMaterial ref={wake} vertexColors transparent opacity={0} blending={AdditiveBlending} depthWrite={false} fog />
       </lineSegments>
       <points geometry={dot} position={[TAXI.length / 2 - 1.8, 0.9, 0]}>
-        <pointsMaterial ref={lamp} color={palette.window} size={3} sizeAttenuation={false} transparent opacity={0} depthWrite={false} />
+        <pointsMaterial ref={lamp} color={palette.window} size={0.35} transparent opacity={0} depthWrite={false} />
       </points>
     </group>
   );
@@ -553,7 +395,7 @@ export function Ambient() {
     <Select enabled>
       <Airplane />
       <FanShadow />
-      <Crane />
+      <RoofLight />
       <Wires />
       <WaterTaxi />
       <Birds />

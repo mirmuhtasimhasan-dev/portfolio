@@ -240,6 +240,7 @@ function AboutHouse() {
     els.root.style.visibility = vis < 0.01 ? "hidden" : "visible";
     const showLeader = vis >= 0.01;
     els.leader.setAttribute("visibility", showLeader ? "visible" : "hidden");
+    els.leaderPad?.setAttribute("visibility", showLeader ? "visible" : "hidden");
     els.dot.setAttribute("visibility", showLeader ? "visible" : "hidden");
     if (els.spark) els.spark.setAttribute("visibility", "hidden");
     if (vis < 0.01) return;
@@ -274,6 +275,10 @@ function AboutHouse() {
     els.leader.setAttribute("x2", (wx + (ex - wx) * k).toFixed(1));
     els.leader.setAttribute("y2", (wy + (ey - wy) * k).toFixed(1));
     els.leader.setAttribute("stroke-opacity", (0.85 * vis).toFixed(3));
+    if (els.leaderPad) {
+      for (const k of ["x1", "y1", "x2", "y2"]) els.leaderPad.setAttribute(k, els.leader.getAttribute(k) ?? "0");
+      els.leaderPad.setAttribute("stroke-opacity", vis.toFixed(3));
+    }
     els.dot.setAttribute("cx", wx.toFixed(1));
     els.dot.setAttribute("cy", wy.toFixed(1));
     els.dot.setAttribute("fill-opacity", vis.toFixed(3));
@@ -479,7 +484,8 @@ function CredentialBanner({ k, lot }: { k: number; lot: ContentLot }) {
       roll.current.visible = on > 0.001;
       roll.current.scale.y = Math.max(0.001, on);
     }
-    if (cloth.current) cloth.current.opacity = 0.94 * on;
+    // Solid once unrolled: lines behind the banner never show through it.
+    if (cloth.current) cloth.current.opacity = on;
     if (border.current) border.current.opacity = on;
     if (year.current) year.current.fillOpacity = on;
     if (title.current) title.current.fillOpacity = on;
@@ -491,7 +497,7 @@ function CredentialBanner({ k, lot }: { k: number; lot: ContentLot }) {
       <group ref={roll} visible={false}>
         <mesh position-y={-BANNER.h / 2}>
           <planeGeometry args={[BANNER.w, BANNER.h]} />
-          <meshBasicMaterial ref={cloth} color={palette.bgNight} transparent opacity={0} fog depthWrite={false} />
+          <meshBasicMaterial ref={cloth} color={palette.bgNight} transparent opacity={0} fog />
         </mesh>
         <lineSegments geometry={outline}>
           <lineBasicMaterial ref={border} color={palette.green} transparent opacity={0} fog />
@@ -584,13 +590,15 @@ function SiteBoard() {
       <lineSegments geometry={legs}>
         <lineBasicMaterial color={palette.lineBase} fog />
       </lineSegments>
-      {/* Drawn over the building's corner lines so they never cross the board's text. */}
+      {/* Drawn over the building's lines and the banners so nothing crosses the
+          board. Everything here is in the transparent pass (at full opacity):
+          renderOrder only orders within a pass, and the banners are transparent. */}
       <group position={position} rotation-y={yaw}>
         <mesh renderOrder={20}>
           <planeGeometry args={[w, h]} />
-          <meshBasicMaterial color={palette.bgNight} fog depthTest={false} />
+          <meshBasicMaterial color={palette.bgNight} fog depthTest={false} transparent />
         </mesh>
-        <Line points={rectPoints(w, h)} segments lineWidth={1.4} color={palette.green} depthTest={false} renderOrder={21} />
+        <Line points={rectPoints(w, h)} segments lineWidth={1.4} color={palette.green} depthTest={false} transparent renderOrder={21} />
         {rows.map(([label, value], i) => (
           <group key={label}>
             <Text renderOrder={22} material-depthTest={false} font={FONT} fontSize={0.32} letterSpacing={0.08} color={palette.text2} anchorX="left" anchorY="middle" position={[labelX, rowY(i), 0.02]}>
@@ -601,7 +609,7 @@ function SiteBoard() {
             </Text>
           </group>
         ))}
-        <Line points={[[-w / 2 + 0.3, rowY(2) - 0.48, 0.02], [w / 2 - 0.3, rowY(2) - 0.48, 0.02]]} lineWidth={1} color={palette.lineBase} depthTest={false} renderOrder={21} />
+        <Line points={[[-w / 2 + 0.3, rowY(2) - 0.48, 0.02], [w / 2 - 0.3, rowY(2) - 0.48, 0.02]]} lineWidth={1} color={palette.lineBase} depthTest={false} transparent renderOrder={21} />
         <Text renderOrder={22} material-depthTest={false} font={FONT} fontSize={0.32} letterSpacing={0.08} color={palette.text2} anchorX="left" anchorY="middle" position={[labelX, rowY(3), 0.02]}>
           STATUS
         </Text>
