@@ -6,6 +6,15 @@ import type { Group, Mesh } from "three";
 import { scrollStore } from "@/lib/scrollStore";
 
 /**
+ * Draw order of every board's solid fill: before the text, logos and frame
+ * lines on it (default 0). When a fade makes the fill transparent, three.js
+ * sorts it with the text by distance and could draw it over the letters;
+ * renderOrder sorts first, so the fill always goes down first. Fills also
+ * carry a small polygon offset, pushing them just behind their text in depth.
+ */
+export const BOARD_FILL_ORDER = -1;
+
+/**
  * Fades a whole group in and out from scroll (stop space), so a sign never
  * pops in or shows half-cut at the screen edge before its moment. Children
  * may animate their own opacity every frame: a change since our last write

@@ -26,6 +26,7 @@ import { BILLBOARDS, BRIDGE_FROM } from "@/lib/bridge";
 /** Height the pulse runs at along the bridge deck. */
 const DECK_Y = 0.25;
 import { bazaarStore } from "@/lib/bazaarStore";
+import { BOARD_FILL_ORDER } from "./ScrollFade";
 import { logoSegments } from "@/lib/logoLines";
 import { palette } from "@/lib/palette";
 import { roadFrame } from "@/lib/paths";
@@ -243,9 +244,9 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
       )}
       <group position={spec.position} rotation-y={spec.yaw}>
         {/* Solid backing: hides every city line behind the sign, and is the hit area. */}
-        <mesh onPointerOver={over} onPointerOut={out} onClick={click}>
+        <mesh onPointerOver={over} onPointerOut={out} onClick={click} renderOrder={BOARD_FILL_ORDER}>
           <planeGeometry args={[w, h]} />
-          <meshBasicMaterial color={palette.bgNight} fog />
+          <meshBasicMaterial color={palette.bgNight} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
         </mesh>
         <Line ref={frame} points={rectPoints(w, h)} segments lineWidth={1.2} color={palette.lineBase} transparent />
         {/* Logo and name are kept out of the bloom pass (Select): a thin

@@ -2,6 +2,7 @@
 
 import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { BOARD_FILL_ORDER } from "./ScrollFade";
 import {
   AdditiveBlending,
   BoxGeometry,
@@ -474,9 +475,9 @@ function CredentialBanner({ k, lot }: { k: number; lot: ContentLot }) {
     <group position={[lot.facadeX + o * CREDENTIAL_LIP, top, BANNER.z]} rotation={facadeRotation(lot)}>
       {/* Two short cords from the balcony edge, then the cloth unrolling down. */}
       <group ref={roll} visible={false}>
-        <mesh position-y={-BANNER.h / 2}>
+        <mesh position-y={-BANNER.h / 2} renderOrder={BOARD_FILL_ORDER}>
           <planeGeometry args={[BANNER.w, BANNER.h]} />
-          <meshBasicMaterial ref={cloth} color={palette.bgNight} transparent opacity={0} fog />
+          <meshBasicMaterial ref={cloth} color={palette.bgNight} transparent opacity={0} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
         </mesh>
         <lineSegments geometry={outline}>
           <lineBasicMaterial ref={border} color={palette.green} transparent opacity={0} fog />

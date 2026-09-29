@@ -36,7 +36,7 @@ import { scrollToSection } from "@/lib/scrollNav";
 import { projectSectionId, sectionIndex } from "@/lib/sections";
 import { smoothstep } from "@/lib/timeline";
 import { WetReflection } from "./WetRoad";
-import { ScrollFade } from "./ScrollFade";
+import { BOARD_FILL_ORDER, ScrollFade } from "./ScrollFade";
 
 const FONT = "/fonts/geist-mono-600.woff";
 const GREEN = new Color(palette.green);
@@ -387,9 +387,9 @@ function Gantry() {
         <lineBasicMaterial color={palette.lineBase} fog />
       </lineSegments>
       <group position={center} rotation-y={yaw}>
-        <mesh>
+        <mesh renderOrder={BOARD_FILL_ORDER}>
           <planeGeometry args={[GANTRY_W, h]} />
-          <meshBasicMaterial color={fill} fog />
+          <meshBasicMaterial color={fill} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
         </mesh>
         <Line points={rectPoints(GANTRY_W - 0.24, h - 0.24)} segments lineWidth={2} color={palette.text} />
         <Text font={FONT} fontSize={0.62} letterSpacing={0.06} color={palette.text} anchorX="left" anchorY="middle" position={[-GANTRY_W / 2 + 0.6, headY, 0.03]}>
@@ -401,9 +401,9 @@ function Gantry() {
         </Text>
         {/* Exit tab on top of the right corner, like a real highway sign. */}
         <group position={[GANTRY_W / 2 - EXIT_TAB.w / 2, h / 2 + EXIT_TAB.h / 2 - 0.06, -0.005]}>
-          <mesh>
+          <mesh renderOrder={BOARD_FILL_ORDER}>
             <planeGeometry args={[EXIT_TAB.w, EXIT_TAB.h]} />
-            <meshBasicMaterial color={fill} fog />
+            <meshBasicMaterial color={fill} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
           </mesh>
           <Line
             points={[
@@ -529,9 +529,9 @@ function Billboard({ spec }: { spec: BillboardSpec }) {
         <lineBasicMaterial color={palette.lineBase} fog />
       </lineSegments>
       <group position={spec.position} rotation-y={spec.yaw}>
-        <mesh onPointerOver={over} onPointerOut={out} onClick={click}>
+        <mesh onPointerOver={over} onPointerOut={out} onClick={click} renderOrder={BOARD_FILL_ORDER}>
           <planeGeometry args={[w, h]} />
-          <meshBasicMaterial color={palette.bgNight} fog />
+          <meshBasicMaterial color={palette.bgNight} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
         </mesh>
         <Suspense fallback={null}>
           <Screenshot spec={spec} />
@@ -593,9 +593,10 @@ function AllProjectsSign() {
             e.stopPropagation();
             router.push("/projects");
           }}
+          renderOrder={BOARD_FILL_ORDER}
         >
           <planeGeometry args={[s.w, s.h]} />
-          <meshBasicMaterial color={palette.bgNight} fog />
+          <meshBasicMaterial color={palette.bgNight} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
         </mesh>
         <Line ref={glow} points={rectPoints(s.w, s.h)} segments lineWidth={7} color={palette.green} transparent opacity={0.28} depthWrite={false} blending={AdditiveBlending} />
         <Line points={rectPoints(s.w, s.h)} segments lineWidth={1.6} color={palette.green} />

@@ -10,7 +10,7 @@ import { PLATE, PLATES } from "@/lib/plates";
 import { scrollStore } from "@/lib/scrollStore";
 import { sectionIndex } from "@/lib/sections";
 import { smoothstep } from "@/lib/timeline";
-import { ScrollFade } from "./ScrollFade";
+import { BOARD_FILL_ORDER, ScrollFade } from "./ScrollFade";
 import { palette } from "@/lib/palette";
 import { roadCurve, roadFrame } from "@/lib/road";
 
@@ -97,9 +97,9 @@ function Gate() {
       </lineSegments>
       {/* Neon parts are kept out of bloom: sharp tubes, soft outline halo. */}
       <Select enabled>
-        <mesh position={[0, BEAM_Y, 0]}>
+        <mesh position={[0, BEAM_Y, 0]} renderOrder={BOARD_FILL_ORDER}>
           <planeGeometry args={[2 * POST - 0.8, BEAM_H]} />
-          <meshBasicMaterial color={palette.bgNight} fog />
+          <meshBasicMaterial color={palette.bgNight} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
         </mesh>
         <Line points={arch} lineWidth={2.2} color={palette.green} />
         <Line points={beam} segments lineWidth={1.6} color={palette.green} />
@@ -119,9 +119,9 @@ function Gate() {
         </Text>
         {/* Small plate hanging below the beam. */}
         <group position={[0, BEAM_Y - BEAM_H / 2 - 0.75, 0.04]}>
-          <mesh>
+          <mesh renderOrder={BOARD_FILL_ORDER}>
             <planeGeometry args={[9.6, 0.9]} />
-            <meshBasicMaterial color={palette.bgNight} fog />
+            <meshBasicMaterial color={palette.bgNight} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
           </mesh>
           <Line
             points={[
@@ -189,9 +189,9 @@ function StreetPlate({ plate }: { plate: (typeof PLATES)[number] }) {
       </lineSegments>
       <Select enabled>
         <group position={plate.position} rotation-y={plate.yaw}>
-          <mesh>
+          <mesh renderOrder={BOARD_FILL_ORDER}>
             <planeGeometry args={[w, h]} />
-            <meshBasicMaterial color={palette.bgNight} fog />
+            <meshBasicMaterial color={palette.bgNight} fog polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
           </mesh>
           <Line
             ref={frame}
