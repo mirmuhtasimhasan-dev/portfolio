@@ -26,6 +26,7 @@ import { BILLBOARDS, BRIDGE_FROM } from "@/lib/bridge";
 /** Height the pulse runs at along the bridge deck. */
 const DECK_Y = 0.25;
 import { bazaarStore } from "@/lib/bazaarStore";
+import { lockCursor, unlockCursor } from "@/lib/cursorStore";
 import { BOARD_FILL_ORDER } from "./ScrollFade";
 import { logoSegments } from "@/lib/logoLines";
 import { palette } from "@/lib/palette";
@@ -192,10 +193,12 @@ function NeonSign({ spec, index }: { spec: SignSpec; index: number }) {
     st.current.latched = true;
     bazaarStore.hovered = tool.name;
     document.body.style.cursor = "pointer";
+    lockCursor(e.eventObject, "Trace");
   };
-  const out = () => {
+  const out = (e: ThreeEvent<PointerEvent>) => {
     if (bazaarStore.hovered === tool.name) bazaarStore.hovered = null;
     document.body.style.cursor = "";
+    unlockCursor(e.eventObject);
   };
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();

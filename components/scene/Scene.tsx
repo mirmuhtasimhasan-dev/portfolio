@@ -17,6 +17,7 @@ import { NeonBazaar } from "./NeonBazaar";
 import { Hatirjheel } from "./Hatirjheel";
 import { Landmarks } from "./Landmarks";
 import { TechGate } from "./TechGate";
+import { CursorProbe } from "./CursorProbe";
 import { Ambient } from "./Ambient";
 import { FOG_DENSITY } from "./fog";
 
@@ -83,6 +84,7 @@ export default function Scene({ onCut }: Props) {
         <Hatirjheel />
         <Landmarks />
         <CameraRig onCut={onCut} />
+        <CursorProbe />
         {quality.bloom && (
           // Only bright things cross the threshold: neon, lamps, lit windows,
           // screenshots. Line-base building edges stay dim and unbloomed.

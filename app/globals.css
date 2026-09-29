@@ -93,3 +93,15 @@ body {
     animation: status-blink 2.4s ease-in-out infinite;
   }
 }
+
+/* Custom desktop cursor (components/Cursor.tsx): hide the native one, except
+   the text cursor over text fields. */
+html.custom-cursor,
+html.custom-cursor * {
+  cursor: none !important;
+}
+html.custom-cursor input:not([type="button"]):not([type="submit"]),
+html.custom-cursor textarea,
+html.custom-cursor [contenteditable="true"] {
+  cursor: text !important;
+}

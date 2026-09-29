@@ -37,6 +37,7 @@ import { projectSectionId, sectionIndex } from "@/lib/sections";
 import { smoothstep } from "@/lib/timeline";
 import { WetReflection } from "./WetRoad";
 import { BOARD_FILL_ORDER, ScrollFade } from "./ScrollFade";
+import { lockCursor, unlockCursor } from "@/lib/cursorStore";
 
 const FONT = "/fonts/geist-mono-600.woff";
 const GREEN = new Color(palette.green);
@@ -308,10 +309,12 @@ function GantryRow({ spec, y }: { spec: BillboardSpec; y: number }) {
     e.stopPropagation();
     hovered.current = true;
     document.body.style.cursor = "pointer";
+    lockCursor(e.eventObject, "Go");
   };
-  const out = () => {
+  const out = (e: ThreeEvent<PointerEvent>) => {
     hovered.current = false;
     document.body.style.cursor = "";
+    unlockCursor(e.eventObject);
   };
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -433,10 +436,12 @@ function Gantry() {
               e.stopPropagation();
               allHover.current = true;
               document.body.style.cursor = "pointer";
+              lockCursor(e.eventObject, "Go");
             }}
-            onPointerOut={() => {
+            onPointerOut={(e) => {
               allHover.current = false;
               document.body.style.cursor = "";
+              unlockCursor(e.eventObject);
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -513,10 +518,12 @@ function Billboard({ spec }: { spec: BillboardSpec }) {
     e.stopPropagation();
     projectStore.hovered = spec.project.slug;
     document.body.style.cursor = "pointer";
+    lockCursor(e.eventObject, "Open");
   };
-  const out = () => {
+  const out = (e: ThreeEvent<PointerEvent>) => {
     if (projectStore.hovered === spec.project.slug) projectStore.hovered = null;
     document.body.style.cursor = "";
+    unlockCursor(e.eventObject);
   };
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -584,10 +591,12 @@ function AllProjectsSign() {
             e.stopPropagation();
             hover.current = true;
             document.body.style.cursor = "pointer";
+            lockCursor(e.eventObject, "Go");
           }}
-          onPointerOut={() => {
+          onPointerOut={(e) => {
             hover.current = false;
             document.body.style.cursor = "";
+            unlockCursor(e.eventObject);
           }}
           onClick={(e) => {
             e.stopPropagation();

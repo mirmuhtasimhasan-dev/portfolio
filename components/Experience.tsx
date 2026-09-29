@@ -7,6 +7,7 @@ import { SmoothScroll } from "./SmoothScroll";
 import { Overlays, type OverlaysHandle } from "./Overlays";
 import { DebugOverlay } from "./DebugOverlay";
 import { Nav } from "./Nav";
+import { Cursor } from "./Cursor";
 import { ProjectPanel } from "./ProjectPanel";
 import { TurnHint } from "./TurnHint";
 import { projectStore } from "@/lib/projectStore";
@@ -78,6 +79,7 @@ function DesktopExperience() {
       <ProjectPanel />
       <TurnHint />
       <DebugOverlay />
+      <Cursor />
     </>
   );
 }

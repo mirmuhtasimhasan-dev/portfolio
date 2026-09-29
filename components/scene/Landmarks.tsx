@@ -7,6 +7,7 @@ import { MAX_TURN, sangsadTurn } from "@/lib/sangsadTurn";
 import { Select } from "@react-three/postprocessing";
 import { useGLTF } from "@react-three/drei";
 import { MODEL_URL, buildSangsadParts } from "@/lib/sangsadModel";
+import { lockCursor, unlockCursor } from "@/lib/cursorStore";
 import {
   AdditiveBlending,
   BufferAttribute,
@@ -143,11 +144,14 @@ function SangsadBhaban() {
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
-  const onOver = () => {
-    if (canTurn() && !sangsadTurn.dragging) document.body.style.cursor = "grab";
+  const onOver = (e: ThreeEvent<PointerEvent>) => {
+    if (!canTurn()) return;
+    if (!sangsadTurn.dragging) document.body.style.cursor = "grab";
+    lockCursor(e.eventObject, "Drag");
   };
-  const onOut = () => {
+  const onOut = (e: ThreeEvent<PointerEvent>) => {
     if (!sangsadTurn.dragging) document.body.style.cursor = "";
+    unlockCursor(e.eventObject);
   };
 
   useFrame(({ camera, gl }, delta) => {

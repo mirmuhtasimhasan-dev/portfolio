@@ -64,6 +64,8 @@ Red hints after the hero, building toward the sunrise: red tail-light trails mov
 
 Navigation: a minimal top nav (About, Work, Contact) scrolls to each stop with Lenis. About lands at the end of its sequence with the text showing.
 
+Cursor (desktop only; touch devices and reduced motion keep the normal cursor): a small green dot (#22C55E, 6 px) on the pointer, and four thin corner brackets that glide after it with frame-rate independent damping (transforms only, one requestAnimationFrame loop that sleeps once settled). Over something clickable the brackets snap around it with a little padding and a small green label: "Trace" on tech signs, "Open" on billboards, "Go" on gantry rows and the "All projects" sign, "Drag" on Sangsad Bhaban (at the Contact hold); nav links and buttons get the brackets with no label. 3D targets use the existing hover states, their bounds projected to the screen every frame. A click squeezes the brackets in briefly. Over text fields the custom cursor hides and the normal text cursor shows.
+
 Atmosphere (phase 5):
 - Bloom, desktop only: a luminance threshold lets only neon lines, signs, billboard frames, lamps and lit windows glow softly; line-base building edges stay dim. Billboard screenshots are dimmed to just under the threshold so a bright site never glares.
 - Window flicker: outside the About sequence about 13% of city windows stay lit (dimmer than the lockdown moment, never closer than about 70 m); a few of those switch now and then or flicker like a failing tube. The About sequence owns every window while it plays: no flicker there.
