@@ -29,23 +29,13 @@ export function AboutCard() {
   return (
     <div className="pointer-events-none fixed inset-0 z-10 overflow-hidden">
       <svg aria-hidden className="absolute inset-0 h-full w-full">
-        {/* Solid background band under the leader: no city line crosses it. */}
-        <line
-          ref={(el) => {
-            aboutCardEls.leaderPad = el;
-          }}
-          stroke="var(--color-bg-night)"
-          strokeWidth="5"
-          strokeLinecap="round"
-          visibility="hidden"
-        />
         <line
           ref={(el) => {
             aboutCardEls.leader = el;
           }}
           stroke="var(--color-green)"
-          strokeWidth="1"
-          strokeOpacity="0.85"
+          strokeWidth="1.5"
+          strokeOpacity="1"
           visibility="hidden"
         />
         <circle

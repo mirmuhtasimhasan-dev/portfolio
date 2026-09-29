@@ -182,7 +182,6 @@ function AboutHouse() {
   const halo = useRef<MeshBasicMaterial>(null);
   const laptop = useRef<MeshBasicMaterial>(null);
   const figure = useRef<MeshBasicMaterial>(null);
-  const wallSpill = useRef<MeshBasicMaterial>(null);
   const floorSpill = useRef<MeshBasicMaterial>(null);
   const spill = useSpillTexture();
   const silhouette = useSilhouette();
@@ -228,7 +227,6 @@ function AboutHouse() {
     if (figure.current) figure.current.opacity = lit * 0.96;
     if (laptop.current) laptop.current.opacity = lit * (0.35 + 0.45 * scr);
     // Warm light from the window on the wall below and the balcony beside it.
-    if (wallSpill.current) wallSpill.current.opacity = lit * 0.2;
     if (floorSpill.current) floorSpill.current.opacity = lit * 0.28;
 
     const els = aboutCardEls;
@@ -240,7 +238,6 @@ function AboutHouse() {
     els.root.style.visibility = vis < 0.01 ? "hidden" : "visible";
     const showLeader = vis >= 0.01;
     els.leader.setAttribute("visibility", showLeader ? "visible" : "hidden");
-    els.leaderPad?.setAttribute("visibility", showLeader ? "visible" : "hidden");
     els.dot.setAttribute("visibility", showLeader ? "visible" : "hidden");
     if (els.spark) els.spark.setAttribute("visibility", "hidden");
     if (vis < 0.01) return;
@@ -274,11 +271,7 @@ function AboutHouse() {
     els.leader.setAttribute("y1", wy.toFixed(1));
     els.leader.setAttribute("x2", (wx + (ex - wx) * k).toFixed(1));
     els.leader.setAttribute("y2", (wy + (ey - wy) * k).toFixed(1));
-    els.leader.setAttribute("stroke-opacity", (0.85 * vis).toFixed(3));
-    if (els.leaderPad) {
-      for (const k of ["x1", "y1", "x2", "y2"]) els.leaderPad.setAttribute(k, els.leader.getAttribute(k) ?? "0");
-      els.leaderPad.setAttribute("stroke-opacity", vis.toFixed(3));
-    }
+    els.leader.setAttribute("stroke-opacity", vis.toFixed(3));
     els.dot.setAttribute("cx", wx.toFixed(1));
     els.dot.setAttribute("cy", wy.toFixed(1));
     els.dot.setAttribute("fill-opacity", vis.toFixed(3));
@@ -335,20 +328,6 @@ function AboutHouse() {
             ref={laptop}
             map={glow}
             color={palette.text}
-            transparent
-            opacity={0}
-            fog
-            depthWrite={false}
-            blending={AdditiveBlending}
-          />
-        </mesh>
-        {/* Warm spill on the wall below the window, leaning toward the balcony. */}
-        <mesh position={[-0.5, -ABOUT_WINDOW.height / 2 - 1.2, 0.015]} renderOrder={3}>
-          <planeGeometry args={[3.4, 2.4]} />
-          <meshBasicMaterial
-            ref={wallSpill}
-            map={spill}
-            color={palette.window}
             transparent
             opacity={0}
             fog
