@@ -224,7 +224,7 @@ function TechStack() {
       <p className="mx-auto mt-3 max-w-sm rounded-sm border border-green/60 bg-bg-night px-4 py-2 text-center text-sm text-text">
         Tools I use to design, build and ship websites.
       </p>
-      <p className="mt-6 text-center font-mono text-[11px] uppercase tracking-widest text-text-2">Tap a sign to light it</p>
+      <p className="mt-6 text-center font-mono text-[11px] uppercase tracking-widest text-text-2">Tap a sign to flicker it</p>
       {ZONES.map((z) => (
         <div key={z.zone} className="mt-10">
           {/* Street name plate for the zone. */}
@@ -235,9 +235,9 @@ function TechStack() {
           <ul className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
             {tools
               .filter((t) => t.zone === z.zone)
-              .map((t) => (
+              .map((t, i) => (
                 <li key={t.name}>
-                  <NeonSign name={t.name} logo={t.logo} />
+                  <NeonSign name={t.name} logo={t.logo} level={t.level} index={i} />
                 </li>
               ))}
           </ul>

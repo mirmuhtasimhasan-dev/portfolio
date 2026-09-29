@@ -41,15 +41,25 @@ body {
 @keyframes fan-spin {
   to { transform: rotate(360deg); }
 }
-@keyframes neon-flicker {
-  0% { opacity: 0.3; }
-  8% { opacity: 1; }
-  14% { opacity: 0.25; }
-  24% { opacity: 1; }
-  30% { opacity: 0.45; }
-  44% { opacity: 1; }
-  52% { opacity: 0.7; }
-  60%, 100% { opacity: 1; }
+/* Tube-light start: dark, then 2 or 3 short flashes, then on. Scales the
+   sign's own brightness (the opacity set inline is the end state). */
+@keyframes neon-flicker-2 {
+  0% { filter: brightness(0.15); }
+  12% { filter: brightness(1); }
+  22% { filter: brightness(0.2); }
+  40% { filter: brightness(1); }
+  52% { filter: brightness(0.3); }
+  70%, 100% { filter: brightness(1); }
+}
+@keyframes neon-flicker-3 {
+  0% { filter: brightness(0.15); }
+  10% { filter: brightness(1); }
+  18% { filter: brightness(0.2); }
+  32% { filter: brightness(1); }
+  40% { filter: brightness(0.25); }
+  56% { filter: brightness(1); }
+  64% { filter: brightness(0.4); }
+  78%, 100% { filter: brightness(1); }
 }
 @media (prefers-reduced-motion: no-preference) {
   .fan-spin {
@@ -57,8 +67,11 @@ body {
     transform-origin: center;
     animation: fan-spin 3.2s linear infinite;
   }
-  .neon-flicker {
-    animation: neon-flicker 0.7s steps(1, end) both;
+  .neon-flicker-2 {
+    animation: neon-flicker-2 0.75s steps(1, end) both;
+  }
+  .neon-flicker-3 {
+    animation: neon-flicker-3 0.95s steps(1, end) both;
   }
 }
 
