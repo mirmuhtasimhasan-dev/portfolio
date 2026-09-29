@@ -17,10 +17,8 @@ const TITLE = "Mir MD Muhtasim Hasan · Full-stack developer, Dhaka";
 const DESCRIPTION =
   "Full-stack developer in Mohammadpur, Dhaka. Fly through a neon Dhaka to see my tech stack and the websites I've shipped.";
 
-// On Vercel, share URLs resolve against the production domain; locally, the dev server.
-const SITE_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : "http://localhost:3000";
+/** The live site: metadata and the share image resolve against it. */
+const SITE_URL = "https://muhtasim-hasan.vercel.app";
 
 // The share image is app/opengraph-image.jpg (the hero frame, 1200 x 630).
 export const metadata: Metadata = {
