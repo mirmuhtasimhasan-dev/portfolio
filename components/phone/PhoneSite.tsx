@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
-import { ABOUT, CREDENTIALS, PERSON } from "@/lib/content";
+import { ABOUT, PERSON } from "@/lib/content";
 import { FEATURED } from "@/lib/bridge";
 import { SECTIONS, sectionIndex } from "@/lib/sections";
 import { tools } from "@/data/tools";
@@ -10,6 +10,7 @@ import { useReducedMotion } from "@/lib/media";
 import { ContactPanel } from "../ContactPanel";
 import { SoundToggle } from "../SoundToggle";
 import { AboutHouse } from "./AboutHouse";
+import { PhoneCredentials } from "./PhoneCredentials";
 import { NeonSign } from "./NeonSign";
 
 /*
@@ -199,48 +200,10 @@ function Ln({ n }: { n: number }) {
 /* ---------------- Credentials ---------------- */
 
 function Credentials() {
-  // Top floor first, like reading the building from the roof down.
-  const floors = [...CREDENTIALS].reverse();
   return (
-    <Section id="credentials" label="Credentials">
+    <Section id="credentials" label="Credentials" className="!pt-2">
       <Eyebrow id="credentials" label="Credentials" />
-      {/* The construction signboard in the front yard: a board on two legs. */}
-      <div className="relative mx-auto max-w-md pb-10">
-        <div className="relative z-10 rounded-sm border-2 border-green bg-bg-night p-5 shadow-[0_0_24px_rgb(34_197_94/0.15)]">
-          <dl className="grid grid-cols-[6.5rem_1fr] items-baseline gap-x-3 gap-y-3">
-            <dt className="font-mono text-[11px] uppercase tracking-widest text-text-2">Project</dt>
-            <dd>
-              <h2 className="text-xl font-semibold text-text">What I studied</h2>
-            </dd>
-            <dt className="font-mono text-[11px] uppercase tracking-widest text-text-2">Developer</dt>
-            <dd className="text-text">{PERSON.shortName}</dd>
-            <dt className="font-mono text-[11px] uppercase tracking-widest text-text-2">Floors</dt>
-            <dd>
-              <ol className="space-y-3">
-                {floors.map((c, i) => (
-                  <li key={c.title} className="border-l-2 border-green/50 pl-3">
-                    <p className="font-mono text-[11px] tracking-widest text-green">
-                      Floor {floors.length - i} · {c.year}
-                    </p>
-                    <p className="text-sm leading-snug text-text">
-                      {c.title}
-                      {c.issuer ? <span className="text-text-2">, {c.issuer}</span> : null}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </dd>
-          </dl>
-          <div className="mt-4 grid grid-cols-[6.5rem_1fr] items-baseline gap-x-3 border-t border-line-base pt-4">
-            <p className="font-mono text-[11px] uppercase tracking-widest text-text-2">Status</p>
-            <p className="font-mono text-base font-semibold text-green">Still building</p>
-          </div>
-        </div>
-        {/* Legs */}
-        <span aria-hidden className="absolute bottom-0 left-[18%] top-10 w-0.5 bg-line-base" />
-        <span aria-hidden className="absolute bottom-0 right-[18%] top-10 w-0.5 bg-line-base" />
-        <span aria-hidden className="absolute inset-x-6 bottom-0 h-px bg-line-base" />
-      </div>
+      <PhoneCredentials />
     </Section>
   );
 }

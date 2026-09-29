@@ -61,3 +61,22 @@ body {
     animation: neon-flicker 0.7s steps(1, end) both;
   }
 }
+
+/* Phone Credentials: the roof light blinks; "Still building" pulses slowly.
+   Both steady when motion is reduced. */
+@keyframes roof-blink {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.15; }
+}
+@keyframes status-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .roof-blink {
+    animation: roof-blink 1.6s steps(1, end) infinite;
+  }
+  .status-blink {
+    animation: status-blink 2.4s ease-in-out infinite;
+  }
+}
