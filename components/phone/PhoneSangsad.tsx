@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { AdditiveBlending, Box3, CanvasTexture, Color, MeshBasicMaterial, type Mesh } from "three";
 import { palette } from "@/lib/palette";
+import { useCappedInvalidate } from "./useCappedInvalidate";
 import { MODEL_URL, buildSangsadParts } from "@/lib/sangsadModel";
 
 /*
@@ -93,7 +94,7 @@ function Stage() {
   const halo = useRef<Mesh>(null);
   const haloTex = useHaloTexture();
   const size = useThree((s) => s.size);
-  const invalidate = useThree((s) => s.invalidate);
+  const invalidate = useCappedInvalidate();
   const [fit, setFit] = useState<Fit | null>(null);
   const onFit = useCallback(
     (f: Fit) => {
@@ -145,7 +146,7 @@ function Stage() {
 
 /** Scroll-driven sun: re-render on scroll while the stage is on screen. */
 function Driver({ box, reduced }: { box: React.RefObject<HTMLDivElement | null>; reduced: boolean }) {
-  const invalidate = useThree((s) => s.invalidate);
+  const invalidate = useCappedInvalidate();
   useEffect(() => {
     const el = box.current;
     if (!el) return;

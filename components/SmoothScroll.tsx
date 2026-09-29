@@ -67,7 +67,11 @@ export function SmoothScroll({ trackId, onTick }: Props) {
     });
     scrollStore.progress = master.progress;
 
+    // Overlays and stores only change with progress: skip ticks while it holds still.
+    let last = -1;
     const tick = () => {
+      if (scrollStore.progress === last) return;
+      last = scrollStore.progress;
       scrollStore.stop = progressToStop(scrollStore.progress);
       scrollStore.section = stopToSection(scrollStore.stop);
       onTick?.();

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { BufferAttribute, BufferGeometry, Color } from "three";
 import { palette } from "@/lib/palette";
+import { useCappedInvalidate } from "./useCappedInvalidate";
 import { mulberry32 } from "@/lib/random";
 
 /*
@@ -91,7 +92,7 @@ function Skyline({ reduced }: { reduced: boolean }) {
     },
     [lines, lights]
   );
-  const invalidate = useThree((s) => s.invalidate);
+  const invalidate = useCappedInvalidate();
 
   // Windows: most on, a few off; every so often one flickers or switches.
   useEffect(() => {

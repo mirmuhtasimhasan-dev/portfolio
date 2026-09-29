@@ -112,6 +112,12 @@ export function CameraRig({ onCut }: Props) {
       st.yaw = wrapPi(st.yaw + Math.max(-maxStep, Math.min(maxStep, dy)));
       const dp = pitch - st.pitch;
       st.pitch += Math.max(-maxStep, Math.min(maxStep, dp));
+      // Still easing toward the scroll target (the idle float does not count).
+      scrollStore.cameraSettling =
+        st.pos.distanceToSquared(st.targetPos) > 1e-6 ||
+        st.look.distanceToSquared(st.targetLook) > 1e-6 ||
+        Math.abs(dy) > 1e-5 ||
+        Math.abs(dp) > 1e-5;
     }
 
     const t = performance.now() / 1000;

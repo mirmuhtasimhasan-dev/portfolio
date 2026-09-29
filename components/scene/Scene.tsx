@@ -18,6 +18,7 @@ import { Hatirjheel } from "./Hatirjheel";
 import { Landmarks } from "./Landmarks";
 import { TechGate } from "./TechGate";
 import { CursorProbe } from "./CursorProbe";
+import { FrameDriver } from "./FrameDriver";
 import { Ambient } from "./Ambient";
 import { FOG_DENSITY } from "./fog";
 
@@ -56,7 +57,8 @@ export default function Scene({ onCut }: Props) {
   return (
     <div ref={wrapper} className="absolute inset-0">
       <Canvas
-        frameloop={active ? "always" : "never"}
+        // FrameDriver runs the loop: full rate while active, ~30 fps when idle.
+        frameloop="never"
         flat
         dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -85,6 +87,7 @@ export default function Scene({ onCut }: Props) {
         <Landmarks />
         <CameraRig onCut={onCut} />
         <CursorProbe />
+        <FrameDriver active={active} />
         {quality.bloom && (
           // Only bright things cross the threshold: neon, lamps, lit windows,
           // screenshots. Line-base building edges stay dim and unbloomed.

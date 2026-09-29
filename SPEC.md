@@ -172,6 +172,8 @@ Phone mode = a touch device (hover: none, pointer: coarse) or a window narrower 
 - Bloom on desktop only. Device pixel ratio max 1.5.
 - Load text content first, load the canvas after with a dynamic import (ssr: false).
 - Pause rendering when the tab is hidden or the canvas is off screen.
+- Idle throttle (desktop): the canvas loop runs at full display rate while anything happens (scroll, Lenis easing, camera settling, pointer move or hover, drag, keys) and drops to about 30 fps after 2 s of none of that (the camera's idle float does not count); the next input brings full speed back on that frame. Scroll ticks skip the overlay work while progress holds still.
+- Phone mode: both canvases render on demand, capped at 30 fps.
 - Test on an old Android phone before calling any phase done.
 
 ## 10. Phases

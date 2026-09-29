@@ -10,4 +10,6 @@ export const scrollStore = {
   /** Render frames per second, measured in the R3F loop. */
   fps: 0,
   reducedMotion: false,
+  /** Camera still easing toward its scroll target (keeps the loop at full rate). */
+  cameraSettling: false,
 };
