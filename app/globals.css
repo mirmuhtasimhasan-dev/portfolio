@@ -35,3 +35,29 @@ body {
     animation: about-cursor-blink 1s steps(1) infinite;
   }
 }
+
+/* Phone version: the ceiling fan's shadow in the lit About window turns
+   slowly, and a tapped tech sign flickers on. Both still when motion is reduced. */
+@keyframes fan-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes neon-flicker {
+  0% { opacity: 0.3; }
+  8% { opacity: 1; }
+  14% { opacity: 0.25; }
+  24% { opacity: 1; }
+  30% { opacity: 0.45; }
+  44% { opacity: 1; }
+  52% { opacity: 0.7; }
+  60%, 100% { opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fan-spin {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fan-spin 3.2s linear infinite;
+  }
+  .neon-flicker {
+    animation: neon-flicker 0.7s steps(1, end) both;
+  }
+}

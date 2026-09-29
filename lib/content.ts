@@ -6,7 +6,6 @@ export const PERSON = {
   role: "Full-stack developer",
   location: "Mohammadpur, Dhaka",
   available: true,
-  resume: "/resume.pdf",
 };
 
 export const ABOUT = {

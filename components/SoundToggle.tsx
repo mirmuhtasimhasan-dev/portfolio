@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { isSoundOn, onSoundChange, setSound } from "@/lib/sound";
 
-/** Mute toggle for the tube-light tick. Off by default. */
-export function SoundToggle() {
+/** Mute toggle for the tube-light tick. Off by default. Compact: icon only (phone nav). */
+export function SoundToggle({ compact = false }: { compact?: boolean }) {
   const [on, setOn] = useState(isSoundOn);
   useEffect(() => onSoundChange(setOn), []);
 
@@ -24,7 +24,7 @@ export function SoundToggle() {
           <path d="M17 9.5l5 5M22 9.5l-5 5" strokeLinecap="round" />
         )}
       </svg>
-      Sound {on ? "on" : "off"}
+      <span className={compact ? "sr-only" : undefined}>Sound {on ? "on" : "off"}</span>
     </button>
   );
 }

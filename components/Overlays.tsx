@@ -70,15 +70,6 @@ function SectionBody({ id, index }: { id: SectionId; index: number }) {
           <p className="mt-5 text-lg text-text-2 sm:text-xl">
             {PERSON.role}, {PERSON.location}
           </p>
-          <a
-            href={PERSON.resume}
-            target="_blank"
-            rel="noopener"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-green px-6 py-3 text-sm font-semibold text-bg-night transition-colors hover:bg-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green"
-          >
-            Resume
-            <span aria-hidden>↓</span>
-          </a>
         </Scrimmed>
       );
     case "about":

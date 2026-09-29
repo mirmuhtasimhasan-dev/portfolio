@@ -16,11 +16,20 @@ import { AboutCard } from "./AboutCard";
 import { TRACK_ID, TRACK_VH } from "@/lib/sections";
 import { SignHint } from "./SignHint";
 import { HOLDS } from "@/lib/stopMap";
+import { usePhoneMode } from "@/lib/media";
 
 // Text first; the WebGL canvas loads after, client only.
 const Scene = dynamic(() => import("./scene/Scene"), { ssr: false });
+// Phone mode: normal scrolling sections over a light background canvas.
+const PhoneSite = dynamic(() => import("./phone/PhoneSite"), { ssr: false });
 
+/** Desktop fly-through, or the phone version (touch device or under 900 px). */
 export function Experience() {
+  const phone = usePhoneMode();
+  return phone ? <PhoneSite /> : <DesktopExperience />;
+}
+
+function DesktopExperience() {
   const overlays = useRef<OverlaysHandle>(null);
   const fade = useRef<HTMLDivElement>(null);
 
