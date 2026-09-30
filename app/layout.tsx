@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "lenis/dist/lenis.css";
 import "./globals.css";
@@ -43,7 +44,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Vercel Web Analytics (page views; no cookies). */}
+        <Analytics />
+      </body>
     </html>
   );
 }
