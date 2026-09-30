@@ -1,4 +1,4 @@
-// Section copy, from SPEC.md sections 4 and 7.
+// Section copy, from docs/SPEC.md sections 4 and 7.
 
 export const PERSON = {
   fullName: "Mir MD Muhtasim Hasan",

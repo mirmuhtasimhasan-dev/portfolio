@@ -6,7 +6,7 @@ import { roadFrame } from "./road";
 
 /*
  * Tangled Dhaka electric wires over the tech-stack street (an ambient detail,
- * see SPEC.md): poles at the kerb, loose sagging wires along both sides and
+ * see docs/SPEC.md): poles at the kerb, loose sagging wires along both sides and
  * across the road, small tangles at the pole tops. Pure geometry, so the
  * layout can be checked against every sign from every hold.
  */

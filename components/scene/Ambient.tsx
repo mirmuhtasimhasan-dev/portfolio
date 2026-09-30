@@ -34,7 +34,7 @@ import { BILLBOARDS, WATER } from "@/lib/bridge";
 import { buildWires } from "@/lib/wires";
 
 /*
- * One small, slow, dim detail per section (SPEC.md, "Ambient details"). None of
+ * One small, slow, dim detail per section (docs/SPEC.md, "Ambient details"). None of
  * them is bright or near the text: all are kept out of bloom and drawn at low
  * opacity. Desktop only, never with reduced motion (Scene mounts this).
  */

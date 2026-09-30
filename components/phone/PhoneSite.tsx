@@ -14,7 +14,7 @@ import { PhoneCredentials } from "./PhoneCredentials";
 import { NeonSign } from "./NeonSign";
 
 /*
- * Phone version (SPEC.md section 8): no fly-through. One fixed, dim wireframe
+ * Phone version (docs/SPEC.md section 8): no fly-through. One fixed, dim wireframe
  * skyline behind everything, and the sections scroll normally on top. The
  * canvases load after the text.
  */

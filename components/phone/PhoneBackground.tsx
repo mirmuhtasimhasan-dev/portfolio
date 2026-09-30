@@ -8,7 +8,7 @@ import { useCappedInvalidate } from "./useCappedInvalidate";
 import { mulberry32 } from "@/lib/random";
 
 /*
- * Phone background (SPEC.md section 8): one fixed, dim wireframe Dhaka skyline
+ * Phone background (docs/SPEC.md section 8): one fixed, dim wireframe Dhaka skyline
  * low on the screen. It drifts a little with scroll (the layers sit at
  * different depths, so they part gently) and a few windows flicker. Rendered
  * on demand only: a frame per scroll step or flicker, pixel ratio 1, no bloom,

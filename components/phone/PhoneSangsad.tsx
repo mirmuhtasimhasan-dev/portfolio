@@ -9,7 +9,7 @@ import { useCappedInvalidate } from "./useCappedInvalidate";
 import { MODEL_URL, buildSangsadParts } from "@/lib/sangsadModel";
 
 /*
- * Phone Contact view (SPEC.md section 8): Sangsad Bhaban from the Blender
+ * Phone Contact view (docs/SPEC.md section 8): Sangsad Bhaban from the Blender
  * model, a still front view in green edges, and the red sun rising a little
  * behind it as the section scrolls up the screen. Renders only on demand and
  * only while on screen; reduced motion shows the sun already risen.
